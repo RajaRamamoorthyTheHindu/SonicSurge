@@ -1,5 +1,6 @@
+
 import Link from 'next/link';
-import { Music, Info, ShieldCheck } from 'lucide-react';
+import { Info, ShieldCheck } from 'lucide-react';
 
 export function Header() {
   return (
@@ -18,17 +19,13 @@ export function Header() {
           </h1>
         </Link>
         <nav className="flex items-center space-x-3 md:space-x-4">
-          <Link href="#" passHref legacyBehavior>
-            <a className="text-muted-foreground hover:text-primary transition-colors p-2 rounded-full hover:bg-card">
-              <Info className="h-5 w-5 md:h-6 md:w-6" />
-              <span className="sr-only">About</span>
-            </a>
+          <Link href="#" className="text-muted-foreground hover:text-primary transition-colors p-2 rounded-full hover:bg-card">
+            <Info className="h-5 w-5 md:h-6 md:w-6" />
+            <span className="sr-only">About</span>
           </Link>
-          <Link href="#" passHref legacyBehavior>
-            <a className="text-muted-foreground hover:text-primary transition-colors p-2 rounded-full hover:bg-card">
-              <ShieldCheck className="h-5 w-5 md:h-6 md:w-6" />
-              <span className="sr-only">Privacy Policy</span>
-            </a>
+          <Link href="#" className="text-muted-foreground hover:text-primary transition-colors p-2 rounded-full hover:bg-card">
+            <ShieldCheck className="h-5 w-5 md:h-6 md:w-6" />
+            <span className="sr-only">Privacy Policy</span>
           </Link>
         </nav>
       </div>
