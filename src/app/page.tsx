@@ -9,7 +9,6 @@ import { SonicMatches } from '@/components/sonic-matches';
 import type { Song } from '@/types';
 import type { InterpretMusicalIntentInput, InterpretMusicalIntentOutput as AIOutput } from '@/ai/flows/interpret-musical-intent';
 import { interpretMusicalIntent } from '@/ai/flows/interpret-musical-intent';
-// import { fetchSpotifyTrackDetailsAction, type SpotifyTrackDetails } from '@/actions/fetch-spotify-track-details-action'; // Removed
 import { fetchSpotifyTracksAction } from '@/actions/fetch-spotify-tracks-action';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
@@ -30,7 +29,7 @@ export default function Home() {
   const [totalSongsAvailable, setTotalSongsAvailable] = useState(0);
 
 
-  const handleSearchSubmit = async (formValuesFromForm: FindYourVibeFormValues) => {
+  const handleSearchSubmit = async (formValuesFromForm: FindYourVibeFormValues, audioDataUriFromForm?: string) => {
     setIsLoadingSearch(true);
     setRecommendedSongs([]);
     setCurrentOffset(0);
@@ -44,10 +43,11 @@ export default function Home() {
       songName: formValuesFromForm.songName,
       artistName: formValuesFromForm.artistName,
       instrumentTags: formValuesFromForm.instrumentTags,
+      // audioSnippet: audioDataUriFromForm // This line was for audio input, removed as per user request
     };
     
+    console.log("Calling interpretMusicalIntent with input:", aiInput);
     try {
-      console.log("Calling interpretMusicalIntent with input:", aiInput);
       const aiOutput = await interpretMusicalIntent(aiInput);
       console.log("Received AI output:", aiOutput);
       setAiInterpretation(aiOutput);
@@ -68,11 +68,11 @@ export default function Home() {
         setRecommendedSongs([]);
         setTotalSongsAvailable(0);
       }
-    } catch (error: any) {
-      console.error('Error in search submission or AI interpretation:', error);
+    } catch (error) {
+      console.error('Error in search submission or AI interpretation:', (error as Error));
       toast({
         title: 'Error Processing Request',
-        description: error.message || 'Could not process your request. Please try again.',
+        description: (error as Error).message || 'Could not process your request. Please try again.',
         variant: 'destructive',
       });
       setShowResults(true);
@@ -114,11 +114,11 @@ export default function Home() {
         // No toast for "no more songs found" during load more, UI will just disable button
       }
 
-    } catch (error: any) {
-      console.error('Error fetching songs:', error);
+    } catch (error) {
+      console.error('Error fetching songs:', (error as Error));
       toast({
         title: 'Error Fetching Songs',
-        description: error.message || 'Could not fetch song recommendations. Please try again.',
+        description: (error as Error).message || 'Could not fetch song recommendations. Please try again.',
         variant: 'destructive',
       });
       if(isNewSearch) {

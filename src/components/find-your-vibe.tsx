@@ -22,7 +22,7 @@ const formSchema = z.object({
 export type FormValues = z.infer<typeof formSchema>;
 
 interface FindYourVibeProps {
-  onSearchInitiated: (formValues: FormValues) => Promise<void>;
+  onSearchInitiated: (formValues: FormValues, audioDataUri?: string) => Promise<void>;
   isParentSearching: boolean;
 }
 
@@ -43,8 +43,9 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
   async function onSubmit(values: FormValues) {
     setIsSubmittingForm(true);
     try {
+      // The audioDataUri is no longer part of this simplified form
       await onSearchInitiated(values);
-    } catch (error) {
+    } catch {
        // Errors are handled by the parent in page.tsx
     } finally {
       setIsSubmittingForm(false);

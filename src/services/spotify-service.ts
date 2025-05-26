@@ -145,8 +145,8 @@ function mapSpotifyItemToSong(item: SpotifyTrackItem): Song {
 
 export async function getSpotifyRecommendationsService(
   params: InterpretMusicalIntentOutput,
-  limit: number = 5,
-  _offset: number = 0 // Spotify recommendations endpoint does not directly support offset.
+  limit: number = 5
+  // _offset parameter removed as it's not used by Spotify recommendations and caused lint error
 ): Promise<{ songs: Song[]; total: number }> {
   const token = await getClientCredentialsToken();
   const queryParams = new URLSearchParams();

@@ -35,7 +35,7 @@ export async function fetchSpotifyTracksAction(
       // the service may fetch limit + offset and slice if a more advanced handling is implemented there.
       // For now, we primarily rely on 'limit'.
       console.log("Fetching recommendations with seeds:", aiOutput, "limit:", limit, "offset:", offset);
-      return await getSpotifyRecommendationsService(aiOutput, limit, offset);
+      return await getSpotifyRecommendationsService(aiOutput, limit); // _offset was removed from service
     } else if (aiOutput.fallbackSearchQuery) {
       // Use Spotify Search Endpoint with the AI-generated fallback query
       console.log("Fetching tracks with fallback search query:", aiOutput.fallbackSearchQuery, "limit:", limit, "offset:", offset);
@@ -45,8 +45,8 @@ export async function fetchSpotifyTracksAction(
       console.warn("AI provided no seeds and no fallback query. Cannot fetch songs.");
       return { songs: [], total: 0 };
     }
-  } catch (error: any) {
-    console.error("Error in fetchSpotifyTracksAction:", error.message, error);
+  } catch (error) {
+    console.error("Error in fetchSpotifyTracksAction:", (error as Error).message, error);
     // Consider if a more specific error should be thrown or returned
     // For now, returning empty results on error.
     return { songs: [], total: 0 }; 
