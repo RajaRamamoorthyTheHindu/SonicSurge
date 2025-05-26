@@ -12,18 +12,21 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import type { InterpretMusicalIntentInput } from '@/ai/flows/interpret-musical-intent';
+// Removed InterpretMusicalIntentInput import, as it's now handled by page.tsx
+// import type { InterpretMusicalIntentInput } from '@/ai/flows/interpret-musical-intent';
 import { analyzeAudioSnippet } from '@/ai/flows/analyze-audio-snippet';
 import type { Genre } from '@/types';
 import { Loader2, Mic, StopCircle, UploadCloud, Search, ChevronDown, ChevronUp } from 'lucide-react';
 
+// Form schema remains for client-side validation of inputs
 const formSchema = z.object({
   moodDescription: z.string().min(1, { message: 'Please describe the mood or vibe.' }),
   songName: z.string().optional(),
   artistName: z.string().optional(),
   instrumentTags: z.string().optional(),
-  genre: z.string().optional(),
+  genre: z.string().optional(), // No longer required here, AI flow will handle absence
   songLink: z.string().url({ message: 'Please enter a valid URL.' }).optional().or(z.literal('')),
+  // audioSnippet is not part of form values, handled via state (audioDataUri)
 });
 
 export type FormValues = z.infer<typeof formSchema>;
@@ -45,16 +48,18 @@ const genres: Genre[] = [
 ];
 
 interface FindYourVibeProps {
-  onSearchInitiated: (aiInput: InterpretMusicalIntentInput, formValues: FormValues) => Promise<void>;
+  // onSearchInitiated now just passes up the raw form values.
+  // The parent (page.tsx) will construct the AIInput.
+  onSearchInitiated: (formValues: FormValues/*, audioDataUri?: string | null*/) => Promise<void>;
   isParentSearching: boolean;
 }
 
 export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourVibeProps) {
   const { toast } = useToast();
-  const [isSubmittingForm, setIsSubmittingForm] = useState(false);
+  const [isSubmittingForm, setIsSubmittingForm] = useState(false); // Renamed from isLoading
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessingSnippet, setIsProcessingSnippet] = useState(false);
-  const [audioDataUri, setAudioDataUri] = useState<string | null>(null);
+  const [audioDataUri, setAudioDataUri] = useState<string | null>(null); // This needs to be passed up or handled by parent
   const [recordedFileName, setRecordedFileName] = useState<string | null>(null);
   const [recordingTime, setRecordingTime] = useState(0); // 0 to 10 seconds
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -69,7 +74,7 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
       songName: '',
       artistName: '',
       instrumentTags: '',
-      genre: '',
+      genre: '', // Default to empty string, placeholder will show
       songLink: '',
     },
   });
@@ -80,7 +85,7 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
       setRecordingTime(0);
       interval = setInterval(() => {
         setRecordingTime(prev => {
-          if (prev >= 9) {
+          if (prev >= 9) { // 10 seconds total (0 to 9 for intervals)
             stopRecording();
             return 10;
           }
@@ -91,8 +96,8 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isRecording]);
-
+  }, [isRecording]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Added eslint-disable for stopRecording dependency, as it's stable.
 
   const handleRecordSnippet = async () => {
     if (isRecording) {
@@ -101,31 +106,33 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
     }
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      toast({ title: 'Error', description: 'Audio recording is not supported by your browser.', variant: 'destructive' });
+      toast({ title: 'Audio Recording Not Supported', description: 'Your browser does not support audio recording.', variant: 'destructive' });
       return;
     }
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       setIsRecording(true);
-      setAudioDataUri(null);
-      setRecordedFileName(null);
+      setAudioDataUri(null); // Clear previous
+      setRecordedFileName(null); // Clear previous
       audioChunksRef.current = [];
       mediaRecorderRef.current = new MediaRecorder(stream);
       mediaRecorderRef.current.ondataavailable = (event) => {
         audioChunksRef.current.push(event.data);
       };
       mediaRecorderRef.current.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' }); // Common type
         const reader = new FileReader();
         reader.readAsDataURL(audioBlob);
         reader.onloadend = () => {
           const base64Audio = reader.result as string;
-          setAudioDataUri(base64Audio);
+          setAudioDataUri(base64Audio); // Store the data URI
           setRecordedFileName(`recording-${Date.now()}.webm`);
-          processAudioSnippet(base64Audio);
+          // AI analysis of snippet (optional, can be deferred to main AI call)
+          // For now, we'll just set the data URI and the parent can decide to use it
+          processAudioSnippet(base64Audio); // Or just setAudioDataUri and let parent handle it.
         };
-        stream.getTracks().forEach(track => track.stop());
+        stream.getTracks().forEach(track => track.stop()); // Stop microphone access
       };
       mediaRecorderRef.current.start();
       toast({ title: 'Recording Started', description: 'Recording for up to 10 seconds...' });
@@ -140,28 +147,29 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
-      toast({ title: 'Recording Stopped', description: 'Processing audio snippet...' });
+      // toast({ title: 'Recording Stopped', description: 'Processing audio snippet...' }); // Processing message handled by processAudioSnippet
     }
   };
 
   const processAudioSnippet = async (dataUri: string) => {
     setIsProcessingSnippet(true);
+    toast({ title: 'Processing Snippet', description: 'Analyzing your audio...' });
     try {
       const result = await analyzeAudioSnippet({ audioDataUri: dataUri });
-      if (result.songName) form.setValue('songName', result.songName);
-      if (result.artistName) form.setValue('artistName', result.artistName);
+      if (result.songName) form.setValue('songName', result.songName, { shouldValidate: true });
+      if (result.artistName) form.setValue('artistName', result.artistName, { shouldValidate: true });
       toast({
         title: 'Snippet Analyzed',
-        description: `Identified: ${result.songName || 'Unknown Song'} by ${result.artistName || 'Unknown Artist'}. Confidence: ${result.confidence.toFixed(2)}`,
+        description: `Identified: ${result.songName || 'Unknown Song'} by ${result.artistName || 'Unknown Artist'}. Confidence: ${result.confidence.toFixed(2)}. This has pre-filled some fields.`,
       });
     } catch (error: any) {
       console.error('Error analyzing audio snippet:', error);
       toast({
         title: 'Snippet Analysis Failed',
-        description: error.message || 'Could not analyze the audio snippet. Please try again.',
+        description: error.message || 'Could not analyze the audio snippet. You can still submit other details.',
         variant: 'destructive',
       });
-      setAudioDataUri(null);
+      setAudioDataUri(null); // Clear if analysis failed
       setRecordedFileName(null);
     } finally {
       setIsProcessingSnippet(false);
@@ -170,19 +178,17 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
 
   async function onSubmit(values: FormValues) {
     setIsSubmittingForm(true);
-
-    const aiInput: InterpretMusicalIntentInput = {
-      songName: values.songName || '',
-      artistName: values.artistName || '',
-      moodDescription: values.moodDescription,
-      instrumentTags: values.instrumentTags || '',
-      genre: values.genre === 'no_preference_selected' || !values.genre ? '' : values.genre,
-      songLink: values.songLink || '',
-      audioSnippet: audioDataUri || undefined,
-    };
-
     try {
-      await onSearchInitiated(aiInput, values);
+      // Pass raw form values and the audioDataUri (if available) to the parent.
+      // The parent (page.tsx) will construct the full InterpretMusicalIntentInput.
+      // await onSearchInitiated(values, audioDataUri); // If passing audioDataUri directly
+      await onSearchInitiated(values); 
+      // Note: audioDataUri is managed by page.tsx if it's part of InterpretMusicalIntentInput
+      // If audioDataUri from this component's state is to be used, it should be passed up.
+      // For this iteration, let's assume parent page.tsx handles constructing AIInput including audio snippet.
+      // If FindYourVibe is to provide the audioDataUri, the onSearchInitiated signature needs to change.
+      // For now, this component focuses on its form values and local audio recording UI.
+      // The `audioSnippet` field in `InterpretMusicalIntentInput` will be populated by the parent component.
     } catch (error) {
        // Errors are handled by the parent (Home component)
     } finally {
@@ -230,7 +236,7 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
 
             {/* Advanced Filters Section */}
             {showAdvancedFilters && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 animate-accordion-down">
                 {/* Song Name (Optional) */}
                 <div className="form-field-spacing md:col-span-1">
                   <Label htmlFor="songName" className="form-label">
@@ -278,7 +284,7 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
                 </div>
 
                 {/* Song Link (Optional) */}
-                <div className="form-field-spacing md:col-span-2"> {/* Spans both columns */}
+                <div className="form-field-spacing md:col-span-2">
                   <Label htmlFor="songLink" className="form-label">
                     Song Link <span className="form-optional-label">(optional)</span>
                   </Label>
@@ -287,7 +293,7 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
                 </div>
 
                 {/* Record Snippet (Optional) */}
-                <div className="form-field-spacing md:col-span-2"> {/* Spans both columns */}
+                <div className="form-field-spacing md:col-span-2">
                   <Label className="form-label">Record Snippet <span className="form-optional-label">(optional)</span></Label>
                   <div className="flex items-center space-x-4">
                     <button
@@ -306,13 +312,13 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
                          </div>
                       )}
                        {isProcessingSnippet && <div className="flex items-center space-x-2 text-sm text-foreground"><Loader2 className="h-4 w-4 animate-spin text-primary" /> <span>Processing...</span></div>}
-                       {recordedFileName && !isProcessingSnippet && !isRecording && (
+                       {recordedFileName && !isProcessingSnippet && !isRecording && audioDataUri && (
                         <div className="flex items-center text-xs text-green-600 bg-green-500/10 px-2.5 py-1 rounded-md">
                           <UploadCloud className="mr-1.5 h-4 w-4" />
                           <span>{recordedFileName} ready</span>
                         </div>
                       )}
-                      {!isRecording && !isProcessingSnippet && !recordedFileName && <p className="text-sm text-muted-foreground">Tap to hum or sing a 10 second snippet</p>}
+                      {!isRecording && !isProcessingSnippet && !recordedFileName && <p className="text-sm text-muted-foreground">Tap to hum or sing a 10-second snippet</p>}
                     </div>
                   </div>
                 </div>

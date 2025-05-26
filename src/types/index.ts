@@ -1,4 +1,7 @@
-import type { InterpretMusicalIntentOutput as GenAiInterpretOutput } from '@/ai/flows/interpret-musical-intent';
+
+import type { InterpretMusicalIntentOutput as GenAiInterpretOutput, InterpretMusicalIntentInput as GenAiInterpretInput } from '@/ai/flows/interpret-musical-intent';
+export type { SpotifyTrackDetails } from '@/services/spotify-service';
+
 
 export interface Song {
   id: string;
@@ -15,8 +18,11 @@ export interface Song {
 }
 
 export type InterpretMusicalIntentOutput = GenAiInterpretOutput;
+export type InterpretMusicalIntentInput = GenAiInterpretInput;
+
 
 export interface Genre {
   value: string;
   label: string;
 }
+

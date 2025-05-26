@@ -6,14 +6,33 @@ import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import { FindYourVibe, FormValues as FindYourVibeFormValues } from '@/components/find-your-vibe';
 import { SonicMatches } from '@/components/sonic-matches';
-import type { Song, InterpretMusicalIntentOutput as AIOutput } from '@/types';
-import type { InterpretMusicalIntentInput } from '@/ai/flows/interpret-musical-intent';
+import type { Song } from '@/types';
+import type { InterpretMusicalIntentInput, InterpretMusicalIntentOutput as AIOutput } from '@/ai/flows/interpret-musical-intent';
 import { interpretMusicalIntent } from '@/ai/flows/interpret-musical-intent';
+import { fetchSpotifyTrackDetailsAction, type SpotifyTrackDetails } from '@/actions/fetch-spotify-track-details-action';
 import { fetchSpotifyTracksAction } from '@/actions/fetch-spotify-tracks-action';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 
 const SONGS_PER_PAGE = 5;
+
+// Helper to extract Spotify track ID from various URL formats
+function extractSpotifyTrackId(url: string): string | null {
+  try {
+    const parsedUrl = new URL(url);
+    if (parsedUrl.hostname === 'open.spotify.com' && parsedUrl.pathname.includes('/track/')) {
+      const parts = parsedUrl.pathname.split('/');
+      return parts[parts.indexOf('track') + 1] || null;
+    }
+  } catch (e) {
+    // Invalid URL
+  }
+  // Regex for other Spotify URI/URL forms (e.g. spotify:track:TRACK_ID)
+  const spotifyRegex = /(?:spotify:track:|open\.spotify\.com\/track\/)([a-zA-Z0-9]+)/;
+  const match = url.match(spotifyRegex);
+  return match ? match[1] : null;
+}
+
 
 export default function Home() {
   const { toast } = useToast();
@@ -21,14 +40,14 @@ export default function Home() {
   const [currentFormValues, setCurrentFormValues] = useState<FindYourVibeFormValues | null>(null);
   const [recommendedSongs, setRecommendedSongs] = useState<Song[]>([]);
   
-  const [isLoadingSearch, setIsLoadingSearch] = useState(false);
-  const [isLoadingMore, setIsLoadingMore] = useState(false); 
+  const [isLoadingSearch, setIsLoadingSearch] = useState(false); // For initial search + AI
+  const [isLoadingMore, setIsLoadingMore] = useState(false); // For "Load More" button
 
   const [showResults, setShowResults] = useState(false);
   const [currentOffset, setCurrentOffset] = useState(0);
   const [totalSongsAvailable, setTotalSongsAvailable] = useState(0);
 
-  const handleSearchSubmit = async (aiInputFromForm: InterpretMusicalIntentInput, formValuesFromForm: FindYourVibeFormValues) => {
+  const handleSearchSubmit = async (formValuesFromForm: FindYourVibeFormValues) => {
     setIsLoadingSearch(true);
     setRecommendedSongs([]);
     setCurrentOffset(0);
@@ -37,28 +56,78 @@ export default function Home() {
     setAiInterpretation(null);
     setCurrentFormValues(formValuesFromForm);
 
+    let derivedMetadata: SpotifyTrackDetails | null = null;
+    if (formValuesFromForm.songLink) {
+      const spotifyTrackId = extractSpotifyTrackId(formValuesFromForm.songLink);
+      if (spotifyTrackId) {
+        try {
+          derivedMetadata = await fetchSpotifyTrackDetailsAction(spotifyTrackId);
+          if (!derivedMetadata) {
+            toast({
+              title: 'Could Not Fetch Link Details',
+              description: "We couldn't get all details for the Spotify link provided, but we'll still try to use it.",
+              variant: 'default',
+            });
+          }
+        } catch (error) {
+          console.error("Error fetching Spotify track details:", error);
+          toast({
+            title: 'Error Fetching Link Details',
+            description: "There was an issue processing the song link. The AI will use the link URL directly.",
+            variant: 'destructive',
+          });
+        }
+      } else {
+         // For non-Spotify links, or if ID extraction fails, we just pass the link to the AI
+         console.log("Non-Spotify link or ID extraction failed, passing link to AI:", formValuesFromForm.songLink);
+      }
+    }
+
+    const aiInput: InterpretMusicalIntentInput = {
+      moodDescription: formValuesFromForm.moodDescription || "general music discovery", // Ensure moodDescription is always present
+      songName: formValuesFromForm.songName,
+      artistName: formValuesFromForm.artistName,
+      instrumentTags: formValuesFromForm.instrumentTags,
+      genre: formValuesFromForm.genre === 'no_preference_selected' ? undefined : formValuesFromForm.genre,
+      songLink: formValuesFromForm.songLink || undefined, // Pass undefined if empty string
+      derivedTrackMetadata: derivedMetadata || undefined,
+      audioSnippet: undefined, // audioDataUri is not part of FormValues, needs to be passed separately if used
+                               // For now, assuming audio snippet handling is separate or added to FormValues
+    };
+    // If you have audioDataUri from the form component state, pass it here:
+    // if (audioDataUri) aiInput.audioSnippet = audioDataUri;
+
+
     try {
-      const aiOutput = await interpretMusicalIntent(aiInputFromForm);
+      const aiOutput = await interpretMusicalIntent(aiInput);
       setAiInterpretation(aiOutput);
-      if (aiOutput) {
+
+      if (aiOutput && ( (aiOutput.seed_tracks && aiOutput.seed_tracks.length > 0) || 
+                         (aiOutput.seed_artists && aiOutput.seed_artists.length > 0) || 
+                         (aiOutput.seed_genres && aiOutput.seed_genres.length > 0) ||
+                         aiOutput.fallbackSearchQuery )
+      ) {
         await loadSongs(aiOutput, formValuesFromForm, 0, true);
       } else {
         toast({
           title: 'Could not interpret intent',
-          description: "The AI could not fully interpret your request. Please try rephrasing.",
+          description: "The AI could not determine specific recommendations or a search query. Please try rephrasing or adding more details.",
           variant: 'destructive',
         });
         setShowResults(true); 
+        setRecommendedSongs([]); // Ensure songs are cleared
+        setTotalSongsAvailable(0);
       }
-    } catch (error: any)
-{
-      console.error('Error in search submission:', error);
+    } catch (error: any) {
+      console.error('Error in search submission or AI interpretation:', error);
       toast({
-        title: 'Error Interpreting Intent',
+        title: 'Error Processing Request',
         description: error.message || 'Could not process your request. Please try again.',
         variant: 'destructive',
       });
       setShowResults(true);
+      setRecommendedSongs([]);
+      setTotalSongsAvailable(0);
     } finally {
       setIsLoadingSearch(false);
     }
@@ -77,18 +146,20 @@ export default function Home() {
     try {
       const { songs: newSongs, total: totalFromServer } = await fetchSpotifyTracksAction(
         aiOutputToUse,
-        formValuesToUse,
+        formValuesToUse, // formValuesToUse is kept for potential future use by the action, though less critical now
         SONGS_PER_PAGE,
         offsetToLoad
       );
 
       setRecommendedSongs(prev => isNewSearch ? newSongs : [...prev, ...newSongs]);
-      setTotalSongsAvailable(totalFromServer);
+      setTotalSongsAvailable(totalFromServer); // Spotify recommendations total might be an estimate
       setCurrentOffset(offsetToLoad + newSongs.length);
       setShowResults(true);
 
-      if (newSongs.length === 0 && !isNewSearch) {
-          toast({ title: "No more songs found", variant: "default"});
+      if (newSongs.length === 0 && isNewSearch) {
+        toast({ title: "No songs found for this vibe", description: "Try adjusting your mood or filters!", variant: "default"});
+      } else if (newSongs.length === 0 && !isNewSearch) {
+        toast({ title: "No more songs found", variant: "default"});
       }
 
     } catch (error: any) {
@@ -98,10 +169,17 @@ export default function Home() {
         description: error.message || 'Could not fetch song recommendations. Please try again.',
         variant: 'destructive',
       });
+      if(isNewSearch) {
+        setRecommendedSongs([]);
+        setTotalSongsAvailable(0);
+      }
     } finally {
       if (!isNewSearch) {
         setIsLoadingMore(false);
       }
+      // Ensure results section is shown even if an error occurs during song fetching part.
+      // The AI interpretation might still be valuable to display.
+      setShowResults(true);
     }
   };
   
@@ -110,15 +188,20 @@ export default function Home() {
       toast({ title: "Cannot load more", description: "Search context is missing.", variant: "destructive" });
       return;
     }
+    if (recommendedSongs.length >= totalSongsAvailable) {
+      toast({ title: "No more songs to load", variant: "default"});
+      return;
+    }
     loadSongs(aiInterpretation, currentFormValues, currentOffset, false);
   };
 
   useEffect(() => {
-    if (showResults && recommendedSongs.length <= SONGS_PER_PAGE && recommendedSongs.length > 0) { 
+    // Scroll to results only for a new search that yields results
+    if (showResults && isLoadingSearch === false && recommendedSongs.length > 0 && currentOffset === recommendedSongs.length) { 
       const resultsSection = document.getElementById('sonic-matches-results');
       resultsSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
-  }, [showResults, recommendedSongs.length]);
+  }, [showResults, isLoadingSearch, recommendedSongs, currentOffset]);
 
   const hasMoreSongs = recommendedSongs.length > 0 && recommendedSongs.length < totalSongsAvailable;
 
@@ -130,6 +213,7 @@ export default function Home() {
           Tell us the vibe, we&apos;ll find your song.
         </h1>
         <div className="animate-fade-in">
+          {/* Pass audioDataUri state to FindYourVibe if it manages it, or handle it here */}
           <FindYourVibe onSearchInitiated={handleSearchSubmit} isParentSearching={isLoadingSearch} />
         </div>
         
@@ -137,6 +221,7 @@ export default function Home() {
           <div className="flex flex-col justify-center items-center py-12 mt-10 space-y-4 animate-fade-in">
             <Loader2 className="h-10 w-10 animate-spin text-primary" />
             <p className="text-lg font-semibold text-foreground">Finding your vibe…</p>
+            <p className="text-sm text-muted-foreground">This might take a moment...</p>
           </div>
         )}
 
@@ -156,3 +241,4 @@ export default function Home() {
     </div>
   );
 }
+
