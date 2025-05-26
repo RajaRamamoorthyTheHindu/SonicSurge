@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { interpretMusicalIntent, InterpretMusicalIntentInput } from '@/ai/flows/interpret-musical-intent';
 import { analyzeAudioSnippet } from '@/ai/flows/analyze-audio-snippet';
+import { fetchSpotifyTracksAction } from '@/actions/fetch-spotify-tracks-action'; // Import the server action
 import type { Song, InterpretMusicalIntentOutput as AIOutput, Genre } from '@/types';
 import { Loader2, Mic, AlertTriangle, StopCircle, UploadCloud } from 'lucide-react';
 
@@ -48,27 +49,6 @@ interface FindYourVibeProps {
   onResultsFetched: (aiInterpretation: AIOutput | null, songs: Song[]) => void;
   setIsLoadingGlobal: (loading: boolean) => void;
 }
-
-// Mock function to simulate fetching tracks
-async function fetchMockSimilarTracks(aiOutput: AIOutput): Promise<Song[]> {
-  await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate network delay
-  // Create mock songs based on AI output for variety
-  const baseSongs: Omit<Song, 'id' | 'albumArtUrl' | 'aiHint'>[] = [
-    { songTitle: `Echoes of ${aiOutput.moodDescriptors?.[0] || 'Serenity'}`, artistName: `${aiOutput.artistSimilarity?.[0] || 'Dream Syndicate'}`, albumName: 'Abstract Vibes', platformLinks: { spotify: '#', youtube: '#', appleMusic: '#' } },
-    { songTitle: `Rhythm of the ${aiOutput.tempo || 'Night'}`, artistName: `${aiOutput.artistSimilarity?.[1] || 'Tempo Masters'}`, albumName: 'Beat Journey', platformLinks: { spotify: '#', youtube: '#' } },
-    { songTitle: `${aiOutput.genreAffinities?.[0] || 'Indie'} Gems`, artistName: 'Unknown Pioneers', platformLinks: { youtube: '#', appleMusic: '#' } },
-    { songTitle: 'Instrumental Dreams', artistName: `Focus on ${aiOutput.instrumentTags?.[0] || 'Piano'}`, albumName: 'Soundscapes', platformLinks: { spotify: '#' } },
-    { songTitle: 'Melody Maker', artistName: 'The Alchemists', albumName: 'Golden Tunes', platformLinks: { spotify: '#', youtube: '#', appleMusic: '#' } },
-  ];
-
-  return baseSongs.map((song, index) => ({
-    ...song,
-    id: `${aiOutput.tempo}-${index}-${Date.now()}`,
-    albumArtUrl: `https://placehold.co/400x400.png`, // Placeholder with size
-    aiHint: 'album art' // Add data-ai-hint
-  }));
-}
-
 
 export function FindYourVibe({ onResultsFetched, setIsLoadingGlobal }: FindYourVibeProps) {
   const { toast } = useToast();
@@ -129,7 +109,7 @@ export function FindYourVibe({ onResultsFetched, setIsLoadingGlobal }: FindYourV
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       setIsRecording(true);
-      setAudioDataUri(null); // Clear previous recording
+      setAudioDataUri(null); 
       setRecordedFileName(null);
       audioChunksRef.current = [];
       mediaRecorderRef.current = new MediaRecorder(stream);
@@ -137,7 +117,7 @@ export function FindYourVibe({ onResultsFetched, setIsLoadingGlobal }: FindYourV
         audioChunksRef.current.push(event.data);
       };
       mediaRecorderRef.current.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' }); // Common format
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' }); 
         const reader = new FileReader();
         reader.readAsDataURL(audioBlob);
         reader.onloadend = () => {
@@ -146,7 +126,7 @@ export function FindYourVibe({ onResultsFetched, setIsLoadingGlobal }: FindYourV
           setRecordedFileName(`recording-${Date.now()}.webm`);
           processAudioSnippet(base64Audio);
         };
-        stream.getTracks().forEach(track => track.stop()); // Release microphone
+        stream.getTracks().forEach(track => track.stop()); 
       };
       mediaRecorderRef.current.start();
       toast({ title: 'Recording Started', description: 'Recording for up to 15 seconds...' });
@@ -183,7 +163,7 @@ export function FindYourVibe({ onResultsFetched, setIsLoadingGlobal }: FindYourV
         description: error.message || 'Could not analyze the audio snippet. Please try again.',
         variant: 'destructive',
       });
-      setAudioDataUri(null); // Clear failed snippet
+      setAudioDataUri(null); 
       setRecordedFileName(null);
     } finally {
       setIsProcessingSnippet(false);
@@ -193,34 +173,57 @@ export function FindYourVibe({ onResultsFetched, setIsLoadingGlobal }: FindYourV
   async function onSubmit(values: FormValues) {
     setIsLoading(true);
     setIsLoadingGlobal(true);
+    onResultsFetched(null, []); // Clear previous results
 
     const aiInput: InterpretMusicalIntentInput = {
       songName: values.songName || '',
       artistName: values.artistName || '', 
       moodDescription: values.moodDescription || '',
       instrumentTags: values.instrumentTags || '',
-      genre: values.genre === 'no_preference_selected' ? '' : values.genre || '', // Pass empty string if "No Preference"
+      genre: values.genre === 'no_preference_selected' ? '' : values.genre || '',
       songLink: values.songLink || '',
       audioSnippet: audioDataUri || undefined,
     };
 
     try {
       const aiInterpretation = await interpretMusicalIntent(aiInput);
-      const mockSongs = await fetchMockSimilarTracks(aiInterpretation);
-      onResultsFetched(aiInterpretation, mockSongs);
-      // Scroll to results after a short delay to allow rendering
-      setTimeout(() => {
-        const resultsSection = document.getElementById('sonic-matches');
-        resultsSection?.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
+      
+      let songs: Song[] = [];
+      if (aiInterpretation) {
+        // Pass both AI interpretation and relevant form values to the action
+        songs = await fetchSpotifyTracksAction(aiInterpretation, { songName: values.songName, artistName: values.artistName });
+        if (songs.length === 0 && (values.songName || values.artistName || values.genre || values.moodDescription)) {
+           toast({
+            title: 'No exact matches found',
+            description: "Couldn't find exact matches. Broadening search based on AI interpretation.",
+            variant: 'default',
+          });
+        }
+      } else {
+         toast({
+            title: 'Could not interpret intent',
+            description: "The AI could not fully interpret your request. Please try rephrasing.",
+            variant: 'destructive',
+          });
+      }
+      
+      onResultsFetched(aiInterpretation, songs);
+
+      if (songs.length > 0 || aiInterpretation) {
+        setTimeout(() => {
+            const resultsSection = document.getElementById('sonic-matches');
+            resultsSection?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+      }
+
     } catch (error: any) {
-      console.error('Error fetching similar songs:', error);
+      console.error('Error in submission process:', error);
       toast({
         title: 'Error Finding Songs',
         description: error.message || 'Could not fetch recommendations. Please try again.',
         variant: 'destructive',
       });
-      onResultsFetched(null, []); // Clear previous results on error
+      onResultsFetched(null, []); 
     } finally {
       setIsLoading(false);
       setIsLoadingGlobal(false);
@@ -255,7 +258,6 @@ export function FindYourVibe({ onResultsFetched, setIsLoadingGlobal }: FindYourV
                   {...form.register('moodDescription')}
                   className="bg-input placeholder:text-muted-foreground/70 min-h-[100px]"
                 />
-                {form.formState.errors.moodDescription && <p className="text-sm text-destructive mt-1">{form.formState.errors.moodDescription.message}</p>}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -269,7 +271,7 @@ export function FindYourVibe({ onResultsFetched, setIsLoadingGlobal }: FindYourV
                     control={form.control}
                     name="genre"
                     render={({ field }) => (
-                      <Select onValueChange={field.onChange} value={field.value || ''}>
+                      <Select onValueChange={field.onChange} value={field.value || ''} >
                         <SelectTrigger id="genre" className="bg-input placeholder:text-muted-foreground/70">
                           <SelectValue placeholder="Select a genre" />
                         </SelectTrigger>
@@ -280,7 +282,6 @@ export function FindYourVibe({ onResultsFetched, setIsLoadingGlobal }: FindYourV
                       </Select>
                     )}
                   />
-                  {form.formState.errors.genre && <p className="text-sm text-destructive mt-1">{form.formState.errors.genre.message}</p>}
                 </div>
               </div>
 
@@ -323,4 +324,3 @@ export function FindYourVibe({ onResultsFetched, setIsLoadingGlobal }: FindYourV
     </section>
   );
 }
-
