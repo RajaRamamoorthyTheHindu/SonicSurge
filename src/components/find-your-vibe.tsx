@@ -68,7 +68,7 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
       songName: '',
       artistName: '',
       instrumentTags: '',
-      genre: '', 
+      genre: 'no_preference_selected', 
       songLink: '',
     },
   });
@@ -169,9 +169,12 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
   async function onSubmit(values: FormValues) {
     setIsSubmittingForm(true);
     try {
+      // Pass the current audioDataUri (which might be null) along with form values
       await onSearchInitiated(values, audioDataUri); 
     } catch (error) {
-       // Errors are handled by the parent
+       // Errors are handled by the parent in page.tsx
+       // console.error("Error during onSearchInitiated call from FindYourVibe:", error);
+       // toast({ title: 'Submission Error', description: 'An unexpected error occurred.', variant: 'destructive' });
     } finally {
       setIsSubmittingForm(false);
     }
@@ -226,14 +229,14 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
                   <Label htmlFor="artistName" className="form-label">
                     Artist Name <span className="form-optional-label">(optional)</span>
                   </Label>
-                  <Input id="artistName" placeholder="e.g., Dua Lipa" {...form.register('artistName')} className="form-input-field" />
+                  <Input id="artistName" placeholder="e.g. Billie Eilish" {...form.register('artistName')} className="form-input-field" />
                 </div>
                 
                 <div className="form-field-spacing md:col-span-1">
                   <Label htmlFor="instrumentTags" className="form-label">
                     Key Instruments <span className="form-optional-label">(optional)</span>
                   </Label>
-                  <Input id="instrumentTags" placeholder="e.g., guitar, piano, saxophone" {...form.register('instrumentTags')} className="form-input-field" />
+                  <Input id="instrumentTags" placeholder="e.g. guitar, saxophone" {...form.register('instrumentTags')} className="form-input-field" />
                 </div>
 
                 <div className="form-field-spacing md:col-span-1">
@@ -244,7 +247,7 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
                     control={form.control}
                     name="genre"
                     render={({ field }) => (
-                      <Select onValueChange={field.onChange} value={field.value || ''} >
+                      <Select onValueChange={field.onChange} value={field.value || 'no_preference_selected'} >
                         <SelectTrigger id="genre" className="form-select-trigger">
                           <SelectValue placeholder="Select a genre" />
                         </SelectTrigger>

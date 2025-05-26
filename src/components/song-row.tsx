@@ -12,16 +12,16 @@ import { cn } from '@/lib/utils';
 
 interface SongRowProps {
   song: Song;
-  mood?: string;
+  moodQuery?: string; // Changed from 'mood' to 'moodQuery' for clarity
 }
 
-export function SongRow({ song, mood }: SongRowProps) {
+export function SongRow({ song, moodQuery }: SongRowProps) {
   return (
     <TableRow className="hover:bg-muted/50 transition-colors">
       <TableCell className="py-3 px-4 font-medium text-foreground">
         <div className="text-base group-hover:text-primary transition-colors">{song.songTitle}</div>
       </TableCell>
-      <TableCell className="py-3 px-4 text-sm text-muted-foreground">{mood || 'N/A'}</TableCell>
+      <TableCell className="py-3 px-4 text-sm text-muted-foreground">{moodQuery || 'N/A'}</TableCell>
       <TableCell className="py-3 px-4 text-sm text-muted-foreground">{song.artistName}</TableCell>
       <TableCell className="py-3 px-4 text-sm text-muted-foreground">{song.albumName || 'N/A'}</TableCell>
       <TableCell className="py-3 px-4">
@@ -29,7 +29,7 @@ export function SongRow({ song, mood }: SongRowProps) {
           <Image
             src={song.albumArtUrl}
             alt={`Album art for ${song.albumName || song.songTitle}`}
-            width={48} // Smaller size for table cell, as per 64x64px max, this gives padding
+            width={48} 
             height={48}
             className="rounded-md object-cover aspect-square"
             data-ai-hint={song.aiHint || "album art"}

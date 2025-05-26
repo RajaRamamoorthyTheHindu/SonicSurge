@@ -4,7 +4,7 @@
 
 /**
  * @fileOverview This file defines a Genkit flow to interpret user musical intent.
- * It takes user's mood, optional song link metadata, and other preferences.
+ * It takes user's mood, optional song link metadata, audio snippet, and other preferences.
  * It translates these into structured parameters for Spotify's recommendations endpoint or a fallback search query.
  *
  * @exported
@@ -30,16 +30,14 @@ const TrackMetadataInputSchema = z.object({
 
 const InterpretMusicalIntentInputSchema = z.object({
   moodDescription: z.string().describe('Description of the desired mood or vibe. This is a primary input.'),
-  // User's direct inputs from the form
-  songName: z.string().optional().describe('The name of a song the user likes (from form).'),
-  artistName: z.string().optional().describe('The name of an artist the user likes (from form).'),
-  instrumentTags: z.string().optional().describe('Comma-separated list of key instruments (from form).'),
-  genre: z.string().optional().describe('The desired genre of the song (from form).'),
-  // Derived from link, or the link itself
-  derivedTrackMetadata: TrackMetadataInputSchema.describe('Metadata derived from a provided song link (e.g., Spotify track details).'),
+  songName: z.string().optional().describe('The name of a song the user likes (from advanced filters).'),
+  artistName: z.string().optional().describe('The name of an artist the user likes (from advanced filters).'),
+  instrumentTags: z.string().optional().describe('Comma-separated list of key instruments (from advanced filters).'),
+  genre: z.string().optional().describe('The desired genre of the song (from advanced filters).'),
+  derivedTrackMetadata: TrackMetadataInputSchema.describe('Metadata derived from a provided song link (e.g., Spotify track details). This is one source of song characteristics.'),
   songLink: z.string().url().optional().describe('Original song link provided by user (Spotify, YouTube, Apple Music). Used for context if metadata fetch fails or for non-Spotify links.'),
   audioSnippet: z.string().optional().describe(
-    "A short audio snippet of the song, as a data URI. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
+    "A short audio snippet of the song, as a data URI. Expected format: 'data:<mimetype>;base64,<encoded_data>'. This is another source of song characteristics."
   ),
 });
 export type InterpretMusicalIntentInput = z.infer<typeof InterpretMusicalIntentInputSchema>;
@@ -52,7 +50,6 @@ const InterpretMusicalIntentOutputSchema = z.object({
   target_danceability: z.number().min(0).max(1).optional().describe('Target danceability level (0.0 to 1.0).'),
   target_tempo: z.number().optional().describe('Target tempo in BPM (e.g., 120).'),
   target_valence: z.number().min(0).max(1).optional().describe('Target valence (musical positiveness, 0.0 to 1.0).'),
-  // Fallback search query if recommendation parameters cannot be determined
   fallbackSearchQuery: z.string().optional().describe("A general search query string for Spotify if direct recommendation parameters cannot be formed. Example: 'upbeat electronic music'")
 }).describe("Structured parameters for Spotify's recommendations endpoint, or a fallback search query.");
 export type InterpretMusicalIntentOutput = z.infer<typeof InterpretMusicalIntentOutputSchema>;
@@ -65,48 +62,50 @@ const interpretMusicalIntentPrompt = ai.definePrompt({
   name: 'interpretMusicalIntentPrompt',
   input: {schema: InterpretMusicalIntentInputSchema},
   output: {schema: InterpretMusicalIntentOutputSchema},
-  prompt: `You are a sophisticated music recommendation engine. Your goal is to translate user preferences and/or a provided seed track's metadata into a structured set of parameters for Spotify's recommendations endpoint.
+  prompt: `You are a sophisticated music recommendation engine. Your primary goal is to translate the user's preferences into a structured set of parameters for Spotify's recommendations endpoint.
 
-User's Vibe Description: "{{{moodDescription}}}" (This is the primary driver for the recommendation)
+The user's core request is based on their Vibe Description: "{{{moodDescription}}}"
+
+Consider the following additional information if provided:
 
 {{#if derivedTrackMetadata}}
-The user provided a link to a song, and we've extracted the following metadata from it:
+A song link was provided, and we've extracted this metadata:
 Seed Track ID: {{derivedTrackMetadata.id}}
 Seed Track Title: {{derivedTrackMetadata.title}}
 Seed Track Artist: {{derivedTrackMetadata.artist}} (ID: {{derivedTrackMetadata.artistId}})
 Seed Track Album: {{derivedTrackMetadata.album}}
-Seed Track Features:
+Seed Track Audio Features:
   {{#if derivedTrackMetadata.energy}}Energy: {{derivedTrackMetadata.energy}}{{/if}}
   {{#if derivedTrackMetadata.danceability}}Danceability: {{derivedTrackMetadata.danceability}}{{/if}}
   {{#if derivedTrackMetadata.tempo}}Tempo: {{derivedTrackMetadata.tempo}} BPM{{/if}}
   {{#if derivedTrackMetadata.valence}}Valence: {{derivedTrackMetadata.valence}}{{/if}}
-If this derivedTrackMetadata is available and has an ID, prioritize using \\\`derivedTrackMetadata.id\\\` in \\\`seed_tracks\\\` and/or \\\`derivedTrackMetadata.artistId\\\` in \\\`seed_artists\\\`.
+If this \\\`derivedTrackMetadata\\\` is available and has an ID, STRONGLY prioritize using \\\`derivedTrackMetadata.id\\\` in \\\`seed_tracks\\\` and/or \\\`derivedTrackMetadata.artistId\\\` in \\\`seed_artists\\\`. Use its audio features to inform target values.
 {{else if songLink}}
-The user provided this link: {{{songLink}}}. If this is a recognizable song, try to infer its characteristics and use them to inform the seeds and targets. If it's a Spotify link but metadata couldn't be fetched, use the context of the link.
+The user provided this link: {{{songLink}}}. If this is a recognizable song (e.g. from YouTube, Apple Music), try to infer its characteristics (artist, genre, general feel, potential audio features) from the link and use them to inform the seeds and targets.
 {{/if}}
 
-User's other preferences from the form (use these to refine recommendations, find seeds if no link is provided, or as a fallback):
+{{#if audioSnippet}}
+An audio snippet was also provided: {{media url=audioSnippet}}
+Analyze this snippet to understand its musical characteristics (implied genre, tempo, mood, instrumentation). Use these characteristics to inform the seeds and target audio features. If both derivedTrackMetadata and an audioSnippet are present, try to synthesize information from both, but give precedence to derivedTrackMetadata if it seems more specific.
+{{/if}}
+
+User's other preferences from advanced filters (use these to refine recommendations, find seeds if no link/snippet is provided, or as a fallback):
 Preferred Song Name (from form): {{{songName}}}
 Preferred Artist Name (from form): {{{artistName}}}
 Preferred Instruments (from form): {{{instrumentTags}}}
 Preferred Genre (from form): {{{genre}}}
 
-{{#if audioSnippet}}
-An audio snippet was also provided. Consider its implied characteristics.
-Audio Snippet: {{media url=audioSnippet}}
-{{/if}}
-
-Based on ALL the information above (prioritizing the vibe description and any derivedTrackMetadata if available), please return a JSON object matching the InterpretMusicalIntentOutputSchema.
+Based on ALL the information above (prioritizing the moodDescription, then any derivedTrackMetadata or audioSnippet characteristics, then other form inputs), please return a JSON object matching the InterpretMusicalIntentOutputSchema.
 Your main goal is to provide parameters for Spotify's recommendations endpoint.
-- Ensure you provide at least one seed (track, artist, or genre) if possible. You can use up to 5 seeds in total (e.g., 1 track, 2 artists, 2 genres).
+- You MUST provide at least one seed (track, artist, or genre) if possible. You can use up to 5 seeds in total across \\\`seed_tracks\\\`, \\\`seed_artists\\\`, and \\\`seed_genres\\\` (e.g., 1 track, 2 artists, 2 genres).
 - \\\`seed_tracks\\\`: (Optional) Array of Spotify track IDs. If \\\`derivedTrackMetadata.id\\\` is present, use it.
 - \\\`seed_artists\\\`: (Optional) Array of Spotify artist IDs. If \\\`derivedTrackMetadata.artistId\\\` is present, use it.
-- \\\`seed_genres\\\`: (Optional) Array of Spotify genre strings. Infer from mood, artist, or provided genre.
-- \\\`target_energy\\\`, \\\`target_danceability\\\`, \\\`target_tempo\\\`, \\\`target_valence\\\`: (Optional) Floats between 0.0 and 1.0 (tempo is BPM). Derive these from the mood and/or seed track features.
+- \\\`seed_genres\\\`: (Optional) Array of Spotify genre strings. Infer from mood, link/snippet analysis, artist, or provided genre.
+- \\\`target_energy\\\`, \\\`target_danceability\\\`, \\\`target_tempo\\\`, \\\`target_valence\\\`: (Optional) Floats between 0.0 and 1.0 (tempo is BPM). Derive these from the mood and/or seed track/snippet features.
 
 IMPORTANT:
-1. If you can confidently determine seeds (track, artist, or genre), prioritize populating \\\`seed_tracks\\\`, \\\`seed_artists\\\`, and \\\`seed_genres\\\` along with any relevant \\\`target_*\\\` values.
-2. If you CANNOT confidently determine specific seeds (e.g., only a vague mood description is given without a usable link or specific song/artist names), then provide a \\\`fallbackSearchQuery\\\` string. This query should be a descriptive search term for Spotify (e.g., "upbeat electronic music", "chill acoustic vibes").
+1. If you can confidently determine seeds (track, artist, or genre based on the inputs), prioritize populating \\\`seed_tracks\\\`, \\\`seed_artists\\\`, and \\\`seed_genres\\\` along with any relevant \\\`target_*\\\` values.
+2. If you CANNOT confidently determine specific seeds (e.g., only a vague mood description is given without a usable link, snippet, or specific song/artist names), then provide a \\\`fallbackSearchQuery\\\` string. This query should be a descriptive search term for Spotify (e.g., "upbeat electronic music", "chill acoustic vibes for a late night drive").
 3. The \\\`fallbackSearchQuery\\\` should ONLY be used if no seeds can be generated. Do not provide both seeds and a fallbackSearchQuery.
 4. Only include fields in the JSON response if you have a value for them. Ensure the output is valid JSON.
 `,
