@@ -8,14 +8,14 @@ import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label'; // Keep for structure, but use custom classes
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import type { InterpretMusicalIntentInput } from '@/ai/flows/interpret-musical-intent';
 import { analyzeAudioSnippet } from '@/ai/flows/analyze-audio-snippet';
 import type { Genre } from '@/types';
-import { Loader2, Mic, StopCircle, UploadCloud, Search } from 'lucide-react';
+import { Loader2, Mic, StopCircle, UploadCloud, Search, ChevronDown, ChevronUp } from 'lucide-react';
 
 const formSchema = z.object({
   moodDescription: z.string().min(1, { message: 'Please describe the mood or vibe.' }),
@@ -57,6 +57,7 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
   const [audioDataUri, setAudioDataUri] = useState<string | null>(null);
   const [recordedFileName, setRecordedFileName] = useState<string | null>(null);
   const [recordingTime, setRecordingTime] = useState(0); // 0 to 10 seconds
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -79,7 +80,7 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
       setRecordingTime(0);
       interval = setInterval(() => {
         setRecordingTime(prev => {
-          if (prev >= 9) { // 0-9 is 10 seconds. Stop at 9 to make it 10 seconds total.
+          if (prev >= 9) {
             stopRecording();
             return 10;
           }
@@ -115,7 +116,7 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
         audioChunksRef.current.push(event.data);
       };
       mediaRecorderRef.current.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' }); // Common format
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         const reader = new FileReader();
         reader.readAsDataURL(audioBlob);
         reader.onloadend = () => {
@@ -127,8 +128,6 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
         stream.getTracks().forEach(track => track.stop());
       };
       mediaRecorderRef.current.start();
-      // Optionally, start a timer to automatically stop after 10 seconds if not already handled by useEffect
-      // setTimeout(() => stopRecording(), 10000); // Ensure it stops after 10s
       toast({ title: 'Recording Started', description: 'Recording for up to 10 seconds...' });
     } catch (err) {
       toast({ title: 'Microphone Error', description: 'Could not access microphone. Please check permissions.', variant: 'destructive' });
@@ -175,7 +174,7 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
     const aiInput: InterpretMusicalIntentInput = {
       songName: values.songName || '',
       artistName: values.artistName || '',
-      moodDescription: values.moodDescription, // This is now required
+      moodDescription: values.moodDescription,
       instrumentTags: values.instrumentTags || '',
       genre: values.genre === 'no_preference_selected' || !values.genre ? '' : values.genre,
       songLink: values.songLink || '',
@@ -195,16 +194,16 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
 
   return (
     <section className="w-full">
-      <Card className="max-w-2xl mx-auto form-container-card shadow-subtle">
-        <CardHeader className="pb-2 pt-0 px-0 md:px-0">
-          <CardTitle className="text-lg md:text-xl font-semibold text-center text-foreground">What kind of vibe are you looking for?</CardTitle>
+      <Card className="max-w-2xl mx-auto form-container-card subtle-shadow">
+        <CardHeader className="pb-4 pt-1 px-0 md:px-0">
+          <CardTitle className="form-card-title">What kind of vibe are you looking for?</CardTitle>
         </CardHeader>
         <CardContent className="pt-6 px-0 md:px-0">
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-0">
             {/* Mood / Vibe (Required) */}
             <div className="form-field-spacing">
               <Label htmlFor="moodDescription" className="form-label">
-                Mood / Vibe <span className="text-primary text-sm">*</span>
+                Mood / Vibe <span className="text-primary text-sm">(required)</span>
               </Label>
               <Textarea
                 id="moodDescription"
@@ -215,93 +214,112 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
               {form.formState.errors.moodDescription && <p className="text-xs text-destructive mt-1.5">{form.formState.errors.moodDescription.message}</p>}
             </div>
 
-            {/* Song Name (Optional) */}
+            {/* Advanced Filters Button */}
             <div className="form-field-spacing">
-              <Label htmlFor="songName" className="form-label">
-                Song Name <span className="form-optional-label">(optional)</span>
-              </Label>
-              <Input id="songName" placeholder="e.g., Levitating" {...form.register('songName')} className="form-input-field" />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                className="w-full themed-input flex items-center justify-center text-base font-medium hover:bg-muted/80"
+                aria-expanded={showAdvancedFilters}
+              >
+                {showAdvancedFilters ? 'Hide Advanced Filters' : 'Advanced Filters'}
+                {showAdvancedFilters ? <ChevronUp className="ml-2 h-5 w-5" /> : <ChevronDown className="ml-2 h-5 w-5" />}
+              </Button>
             </div>
 
-            {/* Artist Name (Optional) */}
-            <div className="form-field-spacing">
-              <Label htmlFor="artistName" className="form-label">
-                Artist Name <span className="form-optional-label">(optional)</span>
-              </Label>
-              <Input id="artistName" placeholder="e.g., Dua Lipa" {...form.register('artistName')} className="form-input-field" />
-            </div>
-            
-            {/* Key Instruments (Optional) */}
-            <div className="form-field-spacing">
-              <Label htmlFor="instrumentTags" className="form-label">
-                Key Instruments <span className="form-optional-label">(optional)</span>
-              </Label>
-              <Input id="instrumentTags" placeholder="e.g., guitar, piano, saxophone" {...form.register('instrumentTags')} className="form-input-field" />
-            </div>
+            {/* Advanced Filters Section */}
+            {showAdvancedFilters && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
+                {/* Song Name (Optional) */}
+                <div className="form-field-spacing md:col-span-1">
+                  <Label htmlFor="songName" className="form-label">
+                    Song Name <span className="form-optional-label">(optional)</span>
+                  </Label>
+                  <Input id="songName" placeholder="e.g., Levitating" {...form.register('songName')} className="form-input-field" />
+                </div>
 
-            {/* Genre (Optional) */}
-            <div className="form-field-spacing">
-              <Label htmlFor="genre" className="form-label">
-                Genre <span className="form-optional-label">(optional)</span>
-              </Label>
-              <Controller
-                control={form.control}
-                name="genre"
-                render={({ field }) => (
-                  <Select onValueChange={field.onChange} value={field.value || ''} >
-                    <SelectTrigger id="genre" className="form-select-trigger">
-                      <SelectValue placeholder="Select a genre" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="no_preference_selected">No Preference</SelectItem>
-                      {genres.map(g => <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </div>
+                {/* Artist Name (Optional) */}
+                <div className="form-field-spacing md:col-span-1">
+                  <Label htmlFor="artistName" className="form-label">
+                    Artist Name <span className="form-optional-label">(optional)</span>
+                  </Label>
+                  <Input id="artistName" placeholder="e.g., Dua Lipa" {...form.register('artistName')} className="form-input-field" />
+                </div>
+                
+                {/* Key Instruments (Optional) */}
+                <div className="form-field-spacing md:col-span-1">
+                  <Label htmlFor="instrumentTags" className="form-label">
+                    Key Instruments <span className="form-optional-label">(optional)</span>
+                  </Label>
+                  <Input id="instrumentTags" placeholder="e.g., guitar, piano, saxophone" {...form.register('instrumentTags')} className="form-input-field" />
+                </div>
 
-            {/* Song Link (Optional) */}
-            <div className="form-field-spacing">
-              <Label htmlFor="songLink" className="form-label">
-                Song Link <span className="form-optional-label">(optional)</span>
-              </Label>
-              <Input id="songLink" type="url" placeholder="Paste a Spotify, YouTube, or Apple Music link" {...form.register('songLink')} className="form-input-field"/>
-              {form.formState.errors.songLink && <p className="text-xs text-destructive mt-1.5">{form.formState.errors.songLink.message}</p>}
-            </div>
+                {/* Genre (Optional) */}
+                <div className="form-field-spacing md:col-span-1">
+                  <Label htmlFor="genre" className="form-label">
+                    Genre <span className="form-optional-label">(optional)</span>
+                  </Label>
+                  <Controller
+                    control={form.control}
+                    name="genre"
+                    render={({ field }) => (
+                      <Select onValueChange={field.onChange} value={field.value || ''} >
+                        <SelectTrigger id="genre" className="form-select-trigger">
+                          <SelectValue placeholder="Select a genre" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="no_preference_selected">No Preference</SelectItem>
+                          {genres.map(g => <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </div>
 
-            {/* Record Snippet (Optional) */}
-            <div className="form-field-spacing">
-              <Label className="form-label">Record Snippet <span className="form-optional-label">(optional)</span></Label>
-              <div className="flex items-center space-x-4">
-                <button
-                  type="button"
-                  onClick={handleRecordSnippet}
-                  disabled={isProcessingSnippet || isSubmittingForm || isParentSearching}
-                  className={`record-button-light ${isRecording ? 'recording animate-pulse' : ''} focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background transition-all duration-150 ease-in-out`}
-                  aria-label={isRecording ? "Stop recording" : "Start recording"}
-                >
-                  {isRecording ? <StopCircle className="h-7 w-7" /> : <Mic className="h-7 w-7" />}
-                </button>
-                <div className="flex-grow">
-                  {isRecording && (
-                     <div className="w-full bg-muted rounded-full h-2.5">
-                       <div className="bg-primary h-2.5 rounded-full transition-all duration-1000 ease-linear" style={{ width: `${(recordingTime / 10) * 100}%` }}></div>
-                     </div>
-                  )}
-                   {isProcessingSnippet && <div className="flex items-center space-x-2 text-sm text-foreground"><Loader2 className="h-4 w-4 animate-spin text-primary" /> <span>Processing...</span></div>}
-                   {recordedFileName && !isProcessingSnippet && !isRecording && (
-                    <div className="flex items-center text-xs text-green-600 bg-green-500/10 px-2.5 py-1 rounded-md">
-                      <UploadCloud className="mr-1.5 h-4 w-4" />
-                      <span>{recordedFileName} ready</span>
+                {/* Song Link (Optional) */}
+                <div className="form-field-spacing md:col-span-2"> {/* Spans both columns */}
+                  <Label htmlFor="songLink" className="form-label">
+                    Song Link <span className="form-optional-label">(optional)</span>
+                  </Label>
+                  <Input id="songLink" type="url" placeholder="Paste a Spotify, YouTube, or Apple Music link" {...form.register('songLink')} className="form-input-field"/>
+                  {form.formState.errors.songLink && <p className="text-xs text-destructive mt-1.5">{form.formState.errors.songLink.message}</p>}
+                </div>
+
+                {/* Record Snippet (Optional) */}
+                <div className="form-field-spacing md:col-span-2"> {/* Spans both columns */}
+                  <Label className="form-label">Record Snippet <span className="form-optional-label">(optional)</span></Label>
+                  <div className="flex items-center space-x-4">
+                    <button
+                      type="button"
+                      onClick={handleRecordSnippet}
+                      disabled={isProcessingSnippet || isSubmittingForm || isParentSearching}
+                      className={`record-button-light ${isRecording ? 'recording animate-pulse' : ''} focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background transition-all duration-150 ease-in-out`}
+                      aria-label={isRecording ? "Stop recording" : "Start recording"}
+                    >
+                      {isRecording ? <StopCircle className="h-7 w-7" /> : <Mic className="h-7 w-7" />}
+                    </button>
+                    <div className="flex-grow">
+                      {isRecording && (
+                         <div className="w-full bg-muted rounded-full h-2.5">
+                           <div className="bg-primary h-2.5 rounded-full transition-all duration-1000 ease-linear" style={{ width: `${(recordingTime / 10) * 100}%` }}></div>
+                         </div>
+                      )}
+                       {isProcessingSnippet && <div className="flex items-center space-x-2 text-sm text-foreground"><Loader2 className="h-4 w-4 animate-spin text-primary" /> <span>Processing...</span></div>}
+                       {recordedFileName && !isProcessingSnippet && !isRecording && (
+                        <div className="flex items-center text-xs text-green-600 bg-green-500/10 px-2.5 py-1 rounded-md">
+                          <UploadCloud className="mr-1.5 h-4 w-4" />
+                          <span>{recordedFileName} ready</span>
+                        </div>
+                      )}
+                      {!isRecording && !isProcessingSnippet && !recordedFileName && <p className="text-sm text-muted-foreground">Tap to hum or sing a 10 second snippet</p>}
                     </div>
-                  )}
-                  {!isRecording && !isProcessingSnippet && !recordedFileName && <p className="text-sm text-muted-foreground">Tap to hum or sing a 10 second snippet</p>}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
             
-            <div className="pt-4"> {/* Add some top padding before the button */}
+            <div className="pt-4">
               <Button type="submit" disabled={discoverButtonDisabled} className="discover-button">
                 {(isSubmittingForm || isParentSearching) ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Search className="mr-2 h-5 w-5" />}
                 {(isSubmittingForm || isParentSearching) ? 'Searching...' : 'Find my vibe'}
@@ -313,3 +331,4 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
     </section>
   );
 }
+

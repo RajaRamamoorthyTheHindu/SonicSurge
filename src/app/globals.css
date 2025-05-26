@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -103,7 +104,7 @@ body {
 }
 
 .form-container-card {
-    @apply bg-card rounded-xl shadow-lg; 
+    @apply bg-card rounded-xl; /* Removed shadow-lg, will use subtle-shadow class */
     padding: 2rem; /* 32px padding */
 }
 
@@ -134,7 +135,11 @@ body {
 }
 
 .explainer-text {
-  @apply text-lg md:text-xl font-medium text-center text-foreground mb-8 md:mb-10;
+  @apply text-xl font-medium text-center text-foreground mb-8 md:mb-10;
+}
+
+.form-card-title {
+  @apply text-lg font-semibold text-center text-foreground;
 }
 
 .form-label {
@@ -142,19 +147,24 @@ body {
 }
 
 .form-input-field {
-   @apply themed-input text-base placeholder:text-sm;
+   @apply themed-input text-sm placeholder:text-sm; /* Reverted text size to sm (14px) for inputs */
+   height: 2.5rem; /* 40px height - smaller */
+   padding-top: 0.5rem; /* Adjusted padding */
+   padding-bottom: 0.5rem;
 }
 
 .form-textarea-field {
-  @apply themed-input text-base min-h-[100px] placeholder:text-sm;
+  @apply themed-input text-sm min-h-[80px] placeholder:text-sm; /* Reverted text size and min-height */
+  padding-top: 0.5rem; /* Adjusted padding */
+  padding-bottom: 0.5rem;
 }
 
 .form-select-trigger {
-  @apply themed-input text-base h-11;
+  @apply themed-input text-sm h-10; /* Reverted text size and height */
 }
 
 .form-optional-label {
- @apply text-xs text-muted-foreground ml-1;
+ @apply text-sm text-muted-foreground ml-1.5; /* Reverted to 14px and adjusted margin */
 }
 
 .form-field-spacing {
@@ -162,5 +172,6 @@ body {
 }
 
 .discover-button {
-  @apply themed-button-primary w-full text-base font-semibold py-3.5 rounded-lg shadow-md;
+  @apply themed-button-primary w-full text-base font-semibold py-3 rounded-lg shadow-md; /* Reverted text size to base (16px) and py-3 */
 }
+
