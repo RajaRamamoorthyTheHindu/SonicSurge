@@ -46,8 +46,10 @@ export default function Home() {
   const [showResults, setShowResults] = useState(false);
   const [currentOffset, setCurrentOffset] = useState(0);
   const [totalSongsAvailable, setTotalSongsAvailable] = useState(0);
+  const [audioDataUriForAI, setAudioDataUriForAI] = useState<string | null>(null);
 
-  const handleSearchSubmit = async (formValuesFromForm: FindYourVibeFormValues) => {
+
+  const handleSearchSubmit = async (formValuesFromForm: FindYourVibeFormValues, audioDataUri?: string | null) => {
     setIsLoadingSearch(true);
     setRecommendedSongs([]);
     setCurrentOffset(0);
@@ -55,6 +57,8 @@ export default function Home() {
     setShowResults(false);
     setAiInterpretation(null);
     setCurrentFormValues(formValuesFromForm);
+    setAudioDataUriForAI(audioDataUri || null);
+
 
     let derivedMetadata: SpotifyTrackDetails | null = null;
     if (formValuesFromForm.songLink) {
@@ -66,7 +70,7 @@ export default function Home() {
             toast({
               title: 'Could Not Fetch Link Details',
               description: "We couldn't get all details for the Spotify link provided, but we'll still try to use it.",
-              variant: 'default',
+              variant: 'default', // Changed from destructive as it's a soft failure
             });
           }
         } catch (error) {
@@ -78,26 +82,21 @@ export default function Home() {
           });
         }
       } else {
-         // For non-Spotify links, or if ID extraction fails, we just pass the link to the AI
          console.log("Non-Spotify link or ID extraction failed, passing link to AI:", formValuesFromForm.songLink);
       }
     }
 
     const aiInput: InterpretMusicalIntentInput = {
-      moodDescription: formValuesFromForm.moodDescription || "general music discovery", // Ensure moodDescription is always present
+      moodDescription: formValuesFromForm.moodDescription, // Already required by form
       songName: formValuesFromForm.songName,
       artistName: formValuesFromForm.artistName,
       instrumentTags: formValuesFromForm.instrumentTags,
       genre: formValuesFromForm.genre === 'no_preference_selected' ? undefined : formValuesFromForm.genre,
-      songLink: formValuesFromForm.songLink || undefined, // Pass undefined if empty string
+      songLink: formValuesFromForm.songLink || undefined,
       derivedTrackMetadata: derivedMetadata || undefined,
-      audioSnippet: undefined, // audioDataUri is not part of FormValues, needs to be passed separately if used
-                               // For now, assuming audio snippet handling is separate or added to FormValues
+      audioSnippet: audioDataUriForAI || undefined,
     };
-    // If you have audioDataUri from the form component state, pass it here:
-    // if (audioDataUri) aiInput.audioSnippet = audioDataUri;
-
-
+    
     try {
       const aiOutput = await interpretMusicalIntent(aiInput);
       setAiInterpretation(aiOutput);
@@ -115,7 +114,7 @@ export default function Home() {
           variant: 'destructive',
         });
         setShowResults(true); 
-        setRecommendedSongs([]); // Ensure songs are cleared
+        setRecommendedSongs([]);
         setTotalSongsAvailable(0);
       }
     } catch (error: any) {
@@ -146,20 +145,20 @@ export default function Home() {
     try {
       const { songs: newSongs, total: totalFromServer } = await fetchSpotifyTracksAction(
         aiOutputToUse,
-        formValuesToUse, // formValuesToUse is kept for potential future use by the action, though less critical now
+        formValuesToUse, 
         SONGS_PER_PAGE,
         offsetToLoad
       );
 
       setRecommendedSongs(prev => isNewSearch ? newSongs : [...prev, ...newSongs]);
-      setTotalSongsAvailable(totalFromServer); // Spotify recommendations total might be an estimate
+      setTotalSongsAvailable(totalFromServer); 
       setCurrentOffset(offsetToLoad + newSongs.length);
       setShowResults(true);
 
       if (newSongs.length === 0 && isNewSearch) {
         toast({ title: "No songs found for this vibe", description: "Try adjusting your mood or filters!", variant: "default"});
       } else if (newSongs.length === 0 && !isNewSearch) {
-        toast({ title: "No more songs found", variant: "default"});
+        // No toast for "no more songs found" during load more, UI will just disable button
       }
 
     } catch (error: any) {
@@ -177,8 +176,6 @@ export default function Home() {
       if (!isNewSearch) {
         setIsLoadingMore(false);
       }
-      // Ensure results section is shown even if an error occurs during song fetching part.
-      // The AI interpretation might still be valuable to display.
       setShowResults(true);
     }
   };
@@ -189,14 +186,13 @@ export default function Home() {
       return;
     }
     if (recommendedSongs.length >= totalSongsAvailable) {
-      toast({ title: "No more songs to load", variant: "default"});
+      // No toast here, button will be disabled by hasMoreSongs
       return;
     }
     loadSongs(aiInterpretation, currentFormValues, currentOffset, false);
   };
 
   useEffect(() => {
-    // Scroll to results only for a new search that yields results
     if (showResults && isLoadingSearch === false && recommendedSongs.length > 0 && currentOffset === recommendedSongs.length) { 
       const resultsSection = document.getElementById('sonic-matches-results');
       resultsSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -213,8 +209,10 @@ export default function Home() {
           Tell us the vibe, we&apos;ll find your song.
         </h1>
         <div className="animate-fade-in">
-          {/* Pass audioDataUri state to FindYourVibe if it manages it, or handle it here */}
-          <FindYourVibe onSearchInitiated={handleSearchSubmit} isParentSearching={isLoadingSearch} />
+          <FindYourVibe 
+            onSearchInitiated={handleSearchSubmit} 
+            isParentSearching={isLoadingSearch} 
+          />
         </div>
         
         {isLoadingSearch && (
@@ -233,6 +231,7 @@ export default function Home() {
                onLoadMore={handleLoadMore}
                isLoadingMore={isLoadingMore}
                hasMore={hasMoreSongs}
+               originalMoodDescription={currentFormValues?.moodDescription}
              />
           </div>
         )}
@@ -241,4 +240,3 @@ export default function Home() {
     </div>
   );
 }
-

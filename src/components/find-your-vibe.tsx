@@ -12,21 +12,17 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-// Removed InterpretMusicalIntentInput import, as it's now handled by page.tsx
-// import type { InterpretMusicalIntentInput } from '@/ai/flows/interpret-musical-intent';
 import { analyzeAudioSnippet } from '@/ai/flows/analyze-audio-snippet';
 import type { Genre } from '@/types';
 import { Loader2, Mic, StopCircle, UploadCloud, Search, ChevronDown, ChevronUp } from 'lucide-react';
 
-// Form schema remains for client-side validation of inputs
 const formSchema = z.object({
   moodDescription: z.string().min(1, { message: 'Please describe the mood or vibe.' }),
   songName: z.string().optional(),
   artistName: z.string().optional(),
   instrumentTags: z.string().optional(),
-  genre: z.string().optional(), // No longer required here, AI flow will handle absence
+  genre: z.string().optional(), 
   songLink: z.string().url({ message: 'Please enter a valid URL.' }).optional().or(z.literal('')),
-  // audioSnippet is not part of form values, handled via state (audioDataUri)
 });
 
 export type FormValues = z.infer<typeof formSchema>;
@@ -48,18 +44,16 @@ const genres: Genre[] = [
 ];
 
 interface FindYourVibeProps {
-  // onSearchInitiated now just passes up the raw form values.
-  // The parent (page.tsx) will construct the AIInput.
-  onSearchInitiated: (formValues: FormValues/*, audioDataUri?: string | null*/) => Promise<void>;
+  onSearchInitiated: (formValues: FormValues, audioDataUri?: string | null) => Promise<void>;
   isParentSearching: boolean;
 }
 
 export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourVibeProps) {
   const { toast } = useToast();
-  const [isSubmittingForm, setIsSubmittingForm] = useState(false); // Renamed from isLoading
+  const [isSubmittingForm, setIsSubmittingForm] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessingSnippet, setIsProcessingSnippet] = useState(false);
-  const [audioDataUri, setAudioDataUri] = useState<string | null>(null); // This needs to be passed up or handled by parent
+  const [audioDataUri, setAudioDataUri] = useState<string | null>(null);
   const [recordedFileName, setRecordedFileName] = useState<string | null>(null);
   const [recordingTime, setRecordingTime] = useState(0); // 0 to 10 seconds
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -74,7 +68,7 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
       songName: '',
       artistName: '',
       instrumentTags: '',
-      genre: '', // Default to empty string, placeholder will show
+      genre: '', 
       songLink: '',
     },
   });
@@ -85,7 +79,7 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
       setRecordingTime(0);
       interval = setInterval(() => {
         setRecordingTime(prev => {
-          if (prev >= 9) { // 10 seconds total (0 to 9 for intervals)
+          if (prev >= 9) { 
             stopRecording();
             return 10;
           }
@@ -97,7 +91,6 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
       if (interval) clearInterval(interval);
     };
   }, [isRecording]); // eslint-disable-line react-hooks/exhaustive-deps
-  // Added eslint-disable for stopRecording dependency, as it's stable.
 
   const handleRecordSnippet = async () => {
     if (isRecording) {
@@ -113,26 +106,24 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       setIsRecording(true);
-      setAudioDataUri(null); // Clear previous
-      setRecordedFileName(null); // Clear previous
+      setAudioDataUri(null); 
+      setRecordedFileName(null);
       audioChunksRef.current = [];
       mediaRecorderRef.current = new MediaRecorder(stream);
       mediaRecorderRef.current.ondataavailable = (event) => {
         audioChunksRef.current.push(event.data);
       };
       mediaRecorderRef.current.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' }); // Common type
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' }); 
         const reader = new FileReader();
         reader.readAsDataURL(audioBlob);
         reader.onloadend = () => {
           const base64Audio = reader.result as string;
-          setAudioDataUri(base64Audio); // Store the data URI
+          setAudioDataUri(base64Audio); 
           setRecordedFileName(`recording-${Date.now()}.webm`);
-          // AI analysis of snippet (optional, can be deferred to main AI call)
-          // For now, we'll just set the data URI and the parent can decide to use it
-          processAudioSnippet(base64Audio); // Or just setAudioDataUri and let parent handle it.
+          processAudioSnippet(base64Audio); 
         };
-        stream.getTracks().forEach(track => track.stop()); // Stop microphone access
+        stream.getTracks().forEach(track => track.stop()); 
       };
       mediaRecorderRef.current.start();
       toast({ title: 'Recording Started', description: 'Recording for up to 10 seconds...' });
@@ -147,7 +138,6 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
-      // toast({ title: 'Recording Stopped', description: 'Processing audio snippet...' }); // Processing message handled by processAudioSnippet
     }
   };
 
@@ -169,7 +159,7 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
         description: error.message || 'Could not analyze the audio snippet. You can still submit other details.',
         variant: 'destructive',
       });
-      setAudioDataUri(null); // Clear if analysis failed
+      setAudioDataUri(null); 
       setRecordedFileName(null);
     } finally {
       setIsProcessingSnippet(false);
@@ -179,18 +169,9 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
   async function onSubmit(values: FormValues) {
     setIsSubmittingForm(true);
     try {
-      // Pass raw form values and the audioDataUri (if available) to the parent.
-      // The parent (page.tsx) will construct the full InterpretMusicalIntentInput.
-      // await onSearchInitiated(values, audioDataUri); // If passing audioDataUri directly
-      await onSearchInitiated(values); 
-      // Note: audioDataUri is managed by page.tsx if it's part of InterpretMusicalIntentInput
-      // If audioDataUri from this component's state is to be used, it should be passed up.
-      // For this iteration, let's assume parent page.tsx handles constructing AIInput including audio snippet.
-      // If FindYourVibe is to provide the audioDataUri, the onSearchInitiated signature needs to change.
-      // For now, this component focuses on its form values and local audio recording UI.
-      // The `audioSnippet` field in `InterpretMusicalIntentInput` will be populated by the parent component.
+      await onSearchInitiated(values, audioDataUri); 
     } catch (error) {
-       // Errors are handled by the parent (Home component)
+       // Errors are handled by the parent
     } finally {
       setIsSubmittingForm(false);
     }
@@ -206,7 +187,6 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
         </CardHeader>
         <CardContent className="pt-6 px-0 md:px-0">
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-0">
-            {/* Mood / Vibe (Required) */}
             <div className="form-field-spacing">
               <Label htmlFor="moodDescription" className="form-label">
                 Mood / Vibe <span className="text-primary text-sm">(required)</span>
@@ -220,7 +200,6 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
               {form.formState.errors.moodDescription && <p className="text-xs text-destructive mt-1.5">{form.formState.errors.moodDescription.message}</p>}
             </div>
 
-            {/* Advanced Filters Button */}
             <div className="form-field-spacing">
               <Button
                 type="button"
@@ -234,10 +213,8 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
               </Button>
             </div>
 
-            {/* Advanced Filters Section */}
             {showAdvancedFilters && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 animate-accordion-down">
-                {/* Song Name (Optional) */}
                 <div className="form-field-spacing md:col-span-1">
                   <Label htmlFor="songName" className="form-label">
                     Song Name <span className="form-optional-label">(optional)</span>
@@ -245,7 +222,6 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
                   <Input id="songName" placeholder="e.g., Levitating" {...form.register('songName')} className="form-input-field" />
                 </div>
 
-                {/* Artist Name (Optional) */}
                 <div className="form-field-spacing md:col-span-1">
                   <Label htmlFor="artistName" className="form-label">
                     Artist Name <span className="form-optional-label">(optional)</span>
@@ -253,7 +229,6 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
                   <Input id="artistName" placeholder="e.g., Dua Lipa" {...form.register('artistName')} className="form-input-field" />
                 </div>
                 
-                {/* Key Instruments (Optional) */}
                 <div className="form-field-spacing md:col-span-1">
                   <Label htmlFor="instrumentTags" className="form-label">
                     Key Instruments <span className="form-optional-label">(optional)</span>
@@ -261,7 +236,6 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
                   <Input id="instrumentTags" placeholder="e.g., guitar, piano, saxophone" {...form.register('instrumentTags')} className="form-input-field" />
                 </div>
 
-                {/* Genre (Optional) */}
                 <div className="form-field-spacing md:col-span-1">
                   <Label htmlFor="genre" className="form-label">
                     Genre <span className="form-optional-label">(optional)</span>
@@ -283,7 +257,6 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
                   />
                 </div>
 
-                {/* Song Link (Optional) */}
                 <div className="form-field-spacing md:col-span-2">
                   <Label htmlFor="songLink" className="form-label">
                     Song Link <span className="form-optional-label">(optional)</span>
@@ -292,7 +265,6 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
                   {form.formState.errors.songLink && <p className="text-xs text-destructive mt-1.5">{form.formState.errors.songLink.message}</p>}
                 </div>
 
-                {/* Record Snippet (Optional) */}
                 <div className="form-field-spacing md:col-span-2">
                   <Label className="form-label">Record Snippet <span className="form-optional-label">(optional)</span></Label>
                   <div className="flex items-center space-x-4">
@@ -337,4 +309,3 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
     </section>
   );
 }
-
