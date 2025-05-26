@@ -46,23 +46,31 @@ async function getClientCredentialsToken(): Promise<string> {
   return accessToken!;
 }
 
-interface SpotifyArtist {
+export interface SpotifyArtist {
   id: string;
   name: string;
+  external_urls: {
+    spotify: string;
+  };
+  genres?: string[]; // Optional, but useful
+  popularity?: number; // Optional
 }
 
-interface SpotifyImage {
+export interface SpotifyImage {
   url: string;
   height?: number;
   width?: number;
 }
 
-interface SpotifyAlbum {
+export interface SpotifyAlbum {
+  id: string;
   name: string;
   images: SpotifyImage[];
+  album_type: string;
+  release_date: string;
 }
 
-interface SpotifyTrackItem {
+export interface SpotifyTrackItem {
   id: string;
   name: string;
   artists: SpotifyArtist[];
@@ -71,11 +79,19 @@ interface SpotifyTrackItem {
     spotify: string;
   };
   preview_url?: string | null;
+  popularity?: number;
+  duration_ms?: number;
 }
 
-interface SpotifySearchResponse {
-  tracks: {
-    items: SpotifyTrackItem[];
+interface SpotifySearchResponse<T extends SpotifyTrackItem | SpotifyArtist> {
+  tracks?: { // If searching for tracks
+    items: T[];
+    total: number;
+    limit: number;
+    offset: number;
+  };
+  artists?: { // If searching for artists
+    items: T[];
     total: number;
     limit: number;
     offset: number;
@@ -92,6 +108,10 @@ interface SpotifyRecommendationsResponse {
         type: string;
         href: string | null;
     }>;
+}
+
+interface SpotifyAvailableGenreSeedsResponse {
+  genres: string[];
 }
 
 
@@ -126,7 +146,7 @@ function mapSpotifyItemToSong(item: SpotifyTrackItem): Song {
 export async function getSpotifyRecommendationsService(
   params: InterpretMusicalIntentOutput,
   limit: number = 5,
-  offset: number = 0 // Spotify recommendations endpoint does not directly support offset.
+  _offset: number = 0 // Spotify recommendations endpoint does not directly support offset.
 ): Promise<{ songs: Song[]; total: number }> {
   const token = await getClientCredentialsToken();
   const queryParams = new URLSearchParams();
@@ -135,7 +155,6 @@ export async function getSpotifyRecommendationsService(
     queryParams.append('seed_artists', params.seed_artists.slice(0, 5).join(','));
   }
   if (params.seed_genres && params.seed_genres.length > 0) {
-    // Ensure genres are valid before appending
     const validGenres = params.seed_genres.filter(g => typeof g === 'string' && g.trim() !== '');
     if (validGenres.length > 0) {
         queryParams.append('seed_genres', validGenres.slice(0, 5).join(','));
@@ -148,16 +167,15 @@ export async function getSpotifyRecommendationsService(
   const totalSeeds = (params.seed_artists?.length || 0) + 
                      (params.seed_genres?.filter(g => typeof g === 'string' && g.trim() !== '').length || 0) + 
                      (params.seed_tracks?.length || 0);
-
-  if (totalSeeds === 0 && !params.fallbackSearchQuery) {
-     console.warn("No seeds provided for Spotify recommendations and no fallback query.");
+  
+  if (totalSeeds === 0) {
+     // If no seeds, we rely on the fallbackSearchQuery, which should be handled by searchSpotifyTracksService.
+     // This function (getSpotifyRecommendationsService) should ideally not be called if there are no seeds.
+     console.warn("No seeds provided for Spotify recommendations. This suggests an issue in the calling logic if fallbackSearchQuery was not used instead.");
      return { songs: [], total: 0 };
   }
-  if (totalSeeds === 0 && params.fallbackSearchQuery) { // If no seeds but fallback exists, it should be handled by searchSpotifyTracksService
-    console.warn("No seeds, should use fallback search. This path in getSpotifyRecommendationsService implies an issue in action logic.");
-    return { songs: [], total: 0 };
-  }
-
+  // Spotify API requires at least one seed if recommendations endpoint is used.
+  // The sum of seeds (artists, genres, tracks) cannot exceed 5. This should be enforced by the AI prompt.
 
   if (params.target_danceability) queryParams.append('target_danceability', params.target_danceability.toString());
   if (params.target_energy) queryParams.append('target_energy', params.target_energy.toString());
@@ -167,8 +185,8 @@ export async function getSpotifyRecommendationsService(
   
   queryParams.append('limit', limit.toString());
   // Note: offset is not directly supported by recommendations.
-  // The calling action should handle pagination logic if needed by adjusting seeds or caching.
-
+  
+  console.log(`Fetching Spotify recommendations with query: ${queryParams.toString()}`);
   const response = await fetch(`${SPOTIFY_API_BASE}/recommendations?${queryParams.toString()}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -176,12 +194,15 @@ export async function getSpotifyRecommendationsService(
   if (!response.ok) {
     const errorBody = await response.text();
     console.error('Spotify Recommendations API Error:', response.status, errorBody, queryParams.toString());
-    throw new Error(`Spotify API recommendations failed: ${response.statusText}`);
+    throw new Error(`Spotify API recommendations failed: ${response.statusText} - ${errorBody}`);
   }
 
   const data: SpotifyRecommendationsResponse = await response.json();
   const songs = data.tracks.map(mapSpotifyItemToSong);
   
+  // The recommendations endpoint doesn't provide a 'total'. 
+  // We estimate it based on whether we received the full limit.
+  // This is a simplification for pagination and might not be perfectly accurate.
   const total = songs.length === limit ? songs.length + limit : songs.length; 
 
   return { songs, total };
@@ -199,8 +220,16 @@ export async function searchSpotifyTracksService(
   }
 
   const token = await getClientCredentialsToken();
+  const queryParams = new URLSearchParams({
+    q: queryString,
+    type: 'track',
+    market: 'US', // Consider making market configurable or inferring from user
+    limit: limit.toString(),
+    offset: offset.toString(),
+  });
 
-  const response = await fetch(`${SPOTIFY_API_BASE}/search?q=${encodeURIComponent(queryString)}&type=track&market=US&limit=${limit}&offset=${offset}`, {
+  console.log(`Searching Spotify tracks with query: ${queryParams.toString()}`);
+  const response = await fetch(`${SPOTIFY_API_BASE}/search?${queryParams.toString()}`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -208,12 +237,96 @@ export async function searchSpotifyTracksService(
 
   if (!response.ok) {
     const errorBody = await response.text();
-    console.error('Spotify API Search Error:', response.status, errorBody);
-    throw new Error(`Spotify API track search failed: ${response.statusText}`);
+    console.error('Spotify API Track Search Error:', response.status, errorBody);
+    throw new Error(`Spotify API track search failed: ${response.statusText} - ${errorBody}`);
   }
 
-  const data: SpotifySearchResponse = await response.json();
-  const songs = data.tracks.items.map(mapSpotifyItemToSong);
+  const data: SpotifySearchResponse<SpotifyTrackItem> = await response.json();
+  const songs = data.tracks?.items.map(mapSpotifyItemToSong) || [];
 
-  return { songs, total: data.tracks.total };
+  return { songs, total: data.tracks?.total || 0 };
+}
+
+export async function searchSpotifyArtistsService(
+  artistName: string,
+  limit: number = 1 // Typically, we want the top match for seed generation
+): Promise<SpotifyArtist[]> {
+  if (!artistName.trim()) {
+    console.warn("Spotify artist search query is empty.");
+    return [];
+  }
+  const token = await getClientCredentialsToken();
+  const queryParams = new URLSearchParams({
+    q: artistName,
+    type: 'artist',
+    limit: limit.toString(),
+  });
+
+  console.log(`Searching Spotify artists with query: ${queryParams.toString()}`);
+  const response = await fetch(`${SPOTIFY_API_BASE}/search?${queryParams.toString()}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    console.error('Spotify API Artist Search Error:', response.status, errorBody);
+    // Do not throw, let AI tool handle empty/error response gracefully
+    return []; 
+  }
+  const data: SpotifySearchResponse<SpotifyArtist> = await response.json();
+  return data.artists?.items || [];
+}
+
+
+export async function searchSpotifyTrackService(
+  trackName: string,
+  artistName?: string,
+  limit: number = 1 // Typically, we want the top match for seed generation
+): Promise<SpotifyTrackItem[]> {
+   if (!trackName.trim()) {
+    console.warn("Spotify track search query is empty.");
+    return [];
+  }
+  const token = await getClientCredentialsToken();
+  let query = `track:${trackName}`;
+  if (artistName && artistName.trim()) {
+    query += ` artist:${artistName}`;
+  }
+
+  const queryParams = new URLSearchParams({
+    q: query,
+    type: 'track',
+    limit: limit.toString(),
+  });
+  
+  console.log(`Searching Spotify track with query: ${queryParams.toString()}`);
+  const response = await fetch(`${SPOTIFY_API_BASE}/search?${queryParams.toString()}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    console.error('Spotify API Track Detail Search Error:', response.status, errorBody);
+     // Do not throw, let AI tool handle empty/error response gracefully
+    return [];
+  }
+  const data: SpotifySearchResponse<SpotifyTrackItem> = await response.json();
+  return data.tracks?.items || [];
+}
+
+
+export async function getAvailableGenreSeeds(): Promise<string[]> {
+  const token = await getClientCredentialsToken();
+  const response = await fetch(`${SPOTIFY_API_BASE}/recommendations/available-genre-seeds`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    console.error('Spotify API Available Genre Seeds Error:', response.status, errorBody);
+    // Do not throw, let AI tool handle empty/error response gracefully
+    return [];
+  }
+  const data: SpotifyAvailableGenreSeedsResponse = await response.json();
+  return data.genres || [];
 }
