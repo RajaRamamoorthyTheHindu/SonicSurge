@@ -1,7 +1,7 @@
 
 // src/services/spotify-service.ts
 import type { Song } from '@/types';
-import type { InterpretMusicalIntentOutput } from '@/ai/flows/interpret-musical-intent'; // Will be used for recommendation params
+import type { InterpretMusicalIntentOutput } from '@/ai/flows/interpret-musical-intent';
 
 const SPOTIFY_API_BASE = 'https://api.spotify.com/v1';
 const TOKEN_ENDPOINT = 'https://accounts.spotify.com/api/token';
@@ -73,31 +73,6 @@ interface SpotifyTrackItem {
   preview_url?: string | null;
 }
 
-interface SpotifyAudioFeatures {
-  id: string;
-  danceability: number;
-  energy: number;
-  tempo: number;
-  valence: number;
-  acousticness: number;
-  instrumentalness: number;
-  liveness: number;
-  speechiness: number;
-}
-
-export interface SpotifyTrackDetails {
-  id: string;
-  title: string;
-  artist: string;
-  artistId?: string;
-  album: string;
-  albumArtUrl?: string;
-  energy?: number;
-  danceability?: number;
-  tempo?: number;
-  valence?: number;
-}
-
 interface SpotifySearchResponse {
   tracks: {
     items: SpotifyTrackItem[];
@@ -148,54 +123,10 @@ function mapSpotifyItemToSong(item: SpotifyTrackItem): Song {
 }
 
 
-export async function getSpotifyTrackDetailsAndFeatures(trackId: string): Promise<SpotifyTrackDetails | null> {
-  const token = await getClientCredentialsToken();
-  
-  try {
-    const [trackResponse, featuresResponse] = await Promise.all([
-      fetch(`${SPOTIFY_API_BASE}/tracks/${trackId}`, { headers: { Authorization: `Bearer ${token}` } }),
-      fetch(`${SPOTIFY_API_BASE}/audio-features/${trackId}`, { headers: { Authorization: `Bearer ${token}` } })
-    ]);
-
-    if (!trackResponse.ok) {
-      console.error(`Spotify Track API Error for ${trackId}:`, trackResponse.status, await trackResponse.text());
-      return null;
-    }
-    const trackData: SpotifyTrackItem = await trackResponse.json();
-
-    let featuresData: SpotifyAudioFeatures | null = null;
-    if (featuresResponse.ok) {
-      featuresData = await featuresResponse.json();
-    } else {
-      console.warn(`Spotify Audio Features API Error for ${trackId}:`, featuresResponse.status, await featuresResponse.text());
-    }
-
-    return {
-      id: trackData.id,
-      title: trackData.name,
-      artist: trackData.artists[0]?.name || 'Unknown Artist',
-      artistId: trackData.artists[0]?.id,
-      album: trackData.album.name,
-      albumArtUrl: trackData.album.images[0]?.url,
-      energy: featuresData?.energy,
-      danceability: featuresData?.danceability,
-      tempo: featuresData?.tempo,
-      valence: featuresData?.valence,
-    };
-  } catch (error) {
-    console.error(`Error fetching details for Spotify track ${trackId}:`, error);
-    return null;
-  }
-}
-
-
 export async function getSpotifyRecommendationsService(
   params: InterpretMusicalIntentOutput,
   limit: number = 5,
-  offset: number = 0 // Spotify recommendations endpoint does not directly support offset. We fetch more and slice if needed, or simplify for now.
-                  // For true pagination with recommendations, a more complex strategy involving varying seeds or excluding already fetched tracks is needed.
-                  // For this iteration, we'll fetch `limit` and ignore offset for recommendations, or fetch a larger set if offset is used.
-                  // Let's assume offset is handled by fetching a larger initial set if needed by the calling action. For now, we'll use limit.
+  offset: number = 0 // Spotify recommendations endpoint does not directly support offset.
 ): Promise<{ songs: Song[]; total: number }> {
   const token = await getClientCredentialsToken();
   const queryParams = new URLSearchParams();
@@ -204,17 +135,27 @@ export async function getSpotifyRecommendationsService(
     queryParams.append('seed_artists', params.seed_artists.slice(0, 5).join(','));
   }
   if (params.seed_genres && params.seed_genres.length > 0) {
-    queryParams.append('seed_genres', params.seed_genres.slice(0, 5).join(','));
+    // Ensure genres are valid before appending
+    const validGenres = params.seed_genres.filter(g => typeof g === 'string' && g.trim() !== '');
+    if (validGenres.length > 0) {
+        queryParams.append('seed_genres', validGenres.slice(0, 5).join(','));
+    }
   }
   if (params.seed_tracks && params.seed_tracks.length > 0) {
     queryParams.append('seed_tracks', params.seed_tracks.slice(0, 5).join(','));
   }
 
-  // Ensure total seeds do not exceed 5
-  const totalSeeds = (params.seed_artists?.length || 0) + (params.seed_genres?.length || 0) + (params.seed_tracks?.length || 0);
-  if (totalSeeds === 0 && !params.fallbackSearchQuery) { // if no seeds and no fallback, throw error or return empty
-     console.warn("No seeds provided for Spotify recommendations.");
+  const totalSeeds = (params.seed_artists?.length || 0) + 
+                     (params.seed_genres?.filter(g => typeof g === 'string' && g.trim() !== '').length || 0) + 
+                     (params.seed_tracks?.length || 0);
+
+  if (totalSeeds === 0 && !params.fallbackSearchQuery) {
+     console.warn("No seeds provided for Spotify recommendations and no fallback query.");
      return { songs: [], total: 0 };
+  }
+  if (totalSeeds === 0 && params.fallbackSearchQuery) { // If no seeds but fallback exists, it should be handled by searchSpotifyTracksService
+    console.warn("No seeds, should use fallback search. This path in getSpotifyRecommendationsService implies an issue in action logic.");
+    return { songs: [], total: 0 };
   }
 
 
@@ -222,12 +163,11 @@ export async function getSpotifyRecommendationsService(
   if (params.target_energy) queryParams.append('target_energy', params.target_energy.toString());
   if (params.target_tempo) queryParams.append('target_tempo', params.target_tempo.toString());
   if (params.target_valence) queryParams.append('target_valence', params.target_valence.toString());
+  if (params.target_instrumentalness) queryParams.append('target_instrumentalness', params.target_instrumentalness.toString());
   
   queryParams.append('limit', limit.toString());
   // Note: offset is not directly supported by recommendations.
-  // If offset > 0, we'd need to fetch limit+offset and slice, or have a more complex caching/deduplication strategy.
-  // For now, if offset is used, it will effectively re-fetch similar recommendations unless seeds change.
-  // A simple approach for pagination here might be to just fetch 'limit' songs each time.
+  // The calling action should handle pagination logic if needed by adjusting seeds or caching.
 
   const response = await fetch(`${SPOTIFY_API_BASE}/recommendations?${queryParams.toString()}`, {
     headers: { Authorization: `Bearer ${token}` },
@@ -242,11 +182,7 @@ export async function getSpotifyRecommendationsService(
   const data: SpotifyRecommendationsResponse = await response.json();
   const songs = data.tracks.map(mapSpotifyItemToSong);
   
-  // The recommendations endpoint doesn't give a 'total' in the same way search does.
-  // It gives up to 'limit' tracks based on seeds.
-  // We can assume 'total' is effectively the number of songs returned, or a larger arbitrary number if we want to enable 'load more' once.
-  // For simplicity with 'load more', let's say if we get 'limit' songs, there might be more.
-  const total = songs.length === limit ? songs.length + limit : songs.length; // Simplified total for pagination UI
+  const total = songs.length === limit ? songs.length + limit : songs.length; 
 
   return { songs, total };
 }

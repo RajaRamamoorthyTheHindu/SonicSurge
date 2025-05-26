@@ -17,21 +17,22 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const InterpretMusicalIntentInputSchema = z.object({
-  moodDescription: z.string().describe('Description of the desired mood or vibe. This is a primary input.'),
+  moodDescription: z.string().min(1, { message: 'Please describe the mood or vibe.' }),
   songName: z.string().optional().describe('The name of a song the user likes (from advanced filters).'),
   artistName: z.string().optional().describe('The name of an artist the user likes (from advanced filters).'),
-  instrumentTags: z.string().optional().describe('Comma-separated list of key instruments (from advanced filters).'),
+  instrumentTags: z.string().optional().describe('Comma-separated list of key instruments (e.g., guitar, piano, saxophone) (from advanced filters).'),
 });
 export type InterpretMusicalIntentInput = z.infer<typeof InterpretMusicalIntentInputSchema>;
 
 const InterpretMusicalIntentOutputSchema = z.object({
   seed_tracks: z.array(z.string()).max(5).optional().describe('Up to 5 Spotify track IDs to use as seeds for recommendations. Example: ["3n3Ppam7vgaVa1iaRUc9Lp"]'),
   seed_artists: z.array(z.string()).max(5).optional().describe('Up to 5 Spotify artist IDs to use as seeds. Example: ["3TVXtAsR1Inumwj472S9r4"]'),
-  seed_genres: z.array(z.string()).max(5).optional().describe('Up to 5 genre strings to use as seeds. Example: ["pop", "nu-disco"]'),
+  seed_genres: z.array(z.string()).max(5).optional().describe('Up to 5 *valid Spotify genre strings* to use as seeds. Example: ["pop", "nu-disco", "acoustic"]. Do NOT use instrument names as genres.'),
   target_energy: z.number().min(0).max(1).optional().describe('Target energy level (0.0 to 1.0).'),
   target_danceability: z.number().min(0).max(1).optional().describe('Target danceability level (0.0 to 1.0).'),
   target_tempo: z.number().optional().describe('Target tempo in BPM (e.g., 120).'),
   target_valence: z.number().min(0).max(1).optional().describe('Target valence (musical positiveness, 0.0 to 1.0).'),
+  target_instrumentalness: z.number().min(0).max(1).optional().describe('Target instrumentalness level (0.0 to 1.0, where 1.0 means no vocals).'),
   fallbackSearchQuery: z.string().optional().describe("A general search query string for Spotify if direct recommendation parameters cannot be formed. Example: 'upbeat electronic music'")
 }).describe("Structured parameters for Spotify's recommendations endpoint, or a fallback search query.");
 export type InterpretMusicalIntentOutput = z.infer<typeof InterpretMusicalIntentOutputSchema>;
@@ -55,18 +56,23 @@ Preferred Instruments: {{{instrumentTags}}}
 
 Based on ALL the information above (prioritizing the moodDescription, then other form inputs), please return a JSON object matching the InterpretMusicalIntentOutputSchema.
 Your main goal is to provide parameters for Spotify's recommendations endpoint.
-- You MUST provide at least one seed (track, artist, or genre) if possible. You can use up to 5 seeds in total across \\\`seed_tracks\\\`, \\\`seed_artists\\\`, and \\\`seed_genres\\\` (e.g., 1 track, 2 artists, 2 genres).
-- Infer potential genres from the mood description and any provided artist/song names.
-- If a song name or artist name is provided, try to find their Spotify IDs to use as seeds.
-- \\\`seed_tracks\\\`: (Optional) Array of Spotify track IDs.
-- \\\`seed_artists\\\`: (Optional) Array of Spotify artist IDs.
-- \\\`seed_genres\\\`: (Optional) Array of Spotify genre strings. Infer from mood, or provided artist/song.
-- \\\`target_energy\\\`, \\\`target_danceability\\\`, \\\`target_tempo\\\`, \\\`target_valence\\\`: (Optional) Floats between 0.0 and 1.0 (tempo is BPM). Derive these from the mood description.
+
+- You MUST provide at least one seed (track, artist, or genre) if possible. You can use up to 5 seeds in total across \`seed_tracks\`, \`seed_artists\`, and \`seed_genres\` (e.g., 1 track, 2 artists, 2 genres).
+- If \`instrumentTags\` are provided (e.g., 'guitar, saxophone'), use this information to:
+  1.  Influence the \`target_instrumentalness\` value (a float between 0.0 and 1.0, where 1.0 represents high instrumentalness / no vocals).
+  2.  Help select *valid Spotify genres* for the \`seed_genres\` array. For example, if 'piano' is mentioned, you might consider 'classical' or 'jazz' as genres. **IMPORTANT: Do NOT use instrument names themselves as entries in the \`seed_genres\` array.** Only use actual Spotify genre names.
+  3.  If you are very confident an instrument tag points to a specific well-known instrumental track, you could use that track's ID as a \`seed_track\`.
+- Infer potential genres from the mood description and any provided artist/song names for \`seed_genres\`. Ensure these are valid Spotify genres.
+- If a song name or artist name is provided, try to find their Spotify IDs to use as seeds for \`seed_tracks\` or \`seed_artists\`.
+- \`seed_tracks\`: (Optional) Array of Spotify track IDs.
+- \`seed_artists\`: (Optional) Array of Spotify artist IDs.
+- \`seed_genres\`: (Optional) Array of *valid Spotify genre strings*. Infer from mood, or provided artist/song, informed by instruments but NOT raw instrument names.
+- \`target_energy\`, \`target_danceability\`, \`target_tempo\`, \`target_valence\`, \`target_instrumentalness\`: (Optional) Floats between 0.0 and 1.0 (tempo is BPM). Derive these from the mood description and other inputs like instruments.
 
 IMPORTANT:
-1. If you can confidently determine seeds (track, artist, or genre based on the inputs), prioritize populating \\\`seed_tracks\\\`, \\\`seed_artists\\\`, and \\\`seed_genres\\\` along with any relevant \\\`target_*\\\` values.
-2. If you CANNOT confidently determine specific seeds (e.g., only a vague mood description is given without specific song/artist names), then provide a \\\`fallbackSearchQuery\\\` string. This query should be a descriptive search term for Spotify (e.g., "upbeat electronic music for '{{{moodDescription}}}'", "chill acoustic vibes for '{{{moodDescription}}}'").
-3. The \\\`fallbackSearchQuery\\\` should ONLY be used if no seeds can be generated. Do not provide both seeds and a fallbackSearchQuery.
+1. If you can confidently determine seeds (track, artist, or genre based on the inputs), prioritize populating \`seed_tracks\`, \`seed_artists\`, and \`seed_genres\` along with any relevant \`target_*\` values. Ensure all \`seed_genres\` are actual Spotify genres.
+2. If you CANNOT confidently determine specific seeds, then provide a \`fallbackSearchQuery\` string. This query should be a descriptive search term for Spotify (e.g., "upbeat electronic music for '{{{moodDescription}}}'", "instrumental '{{{instrumentTags}}}' music for '{{{moodDescription}}}'").
+3. The \`fallbackSearchQuery\` should ONLY be used if no seeds can be generated. Do not provide both seeds and a fallbackSearchQuery.
 4. Only include fields in the JSON response if you have a value for them. Ensure the output is valid JSON.
 `,
 });
@@ -82,14 +88,12 @@ const interpretMusicalIntentFlow = ai.defineFlow(
 
     if (!output) {
         console.warn("AI prompt 'interpretMusicalIntentPrompt' did not return a valid output structure for input:", input);
-        // Return a default empty structure or a desperate fallback
-        return { 
-            seed_tracks: undefined, 
-            seed_artists: undefined, 
-            seed_genres: undefined, 
-            // Attempt a very generic fallback if moodDescription is available
+        return {
+            seed_tracks: undefined,
+            seed_artists: undefined,
+            seed_genres: undefined,
             fallbackSearchQuery: input.moodDescription ? `music for ${input.moodDescription}` : "popular music"
-        }; 
+        };
     }
     
     const { seed_tracks, seed_artists, seed_genres } = output;
@@ -97,14 +101,16 @@ const interpretMusicalIntentFlow = ai.defineFlow(
     
     if (totalSeeds > 5) {
         console.warn("AI returned more than 5 seeds, this might be an issue for Spotify. Prompt may need refinement.", output);
-        // Potentially truncate seeds here if necessary, or let Spotify handle it.
     }
     
     if (totalSeeds === 0 && !output.fallbackSearchQuery) {
         console.warn("AI returned no seeds and no fallback query. This might lead to no results. Forcing a fallback.", output);
-        // Force a fallback query here based on moodDescription if critical
         output.fallbackSearchQuery = input.moodDescription ? `music for ${input.moodDescription}` : "popular music";
+        if (input.instrumentTags && !output.fallbackSearchQuery.includes(input.instrumentTags)) {
+            output.fallbackSearchQuery += ` with ${input.instrumentTags}`;
+        }
     }
     return output;
   }
 );
+
