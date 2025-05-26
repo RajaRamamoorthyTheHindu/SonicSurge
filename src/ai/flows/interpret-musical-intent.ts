@@ -4,8 +4,8 @@
 
 /**
  * @fileOverview This file defines a Genkit flow to interpret user musical intent.
- * It takes user's mood, and other optional preferences.
- * It uses tools to resolve artist names, song names to Spotify IDs, and validate genres.
+ * It takes user's mood, and other optional preferences (song name, artist name, instrument tags).
+ * It uses tools to resolve artist names, song names to Spotify IDs, and validate genres against Spotify's available list.
  * It translates these into structured parameters for Spotify's recommendations endpoint or a fallback search query.
  *
  * @exported
@@ -195,6 +195,7 @@ const interpretMusicalIntentFlow = ai.defineFlow(
 
     if (!output) {
         console.warn("AI prompt 'interpretMusicalIntentPrompt' did not return a valid output structure for input:", input);
+        // Attempt to create a very basic fallback if AI output is completely missing
         return {
             seed_tracks: undefined,
             seed_artists: undefined,
@@ -212,11 +213,16 @@ const interpretMusicalIntentFlow = ai.defineFlow(
         // For now, just logging.
     }
     
+    // If AI provided neither seeds nor a fallback, create a fallback.
     if (totalSeeds === 0 && !output.fallbackSearchQuery) {
         console.warn("AI returned no seeds and no fallback query. Forcing a fallback.", output);
         output.fallbackSearchQuery = input.moodDescription ? `music for ${input.moodDescription}` : "popular music";
         if (input.instrumentTags && output.fallbackSearchQuery && !output.fallbackSearchQuery.includes(input.instrumentTags)) {
-            output.fallbackSearchQuery += ` with ${input.instrumentTags}`;
+            // Append instrument tags to the fallback query if they exist and aren't already implicitly included
+            const instrumentQueryPart = typeof input.instrumentTags === 'string' ? input.instrumentTags : '';
+            if (instrumentQueryPart && !output.fallbackSearchQuery.toLowerCase().includes(instrumentQueryPart.toLowerCase())) {
+                 output.fallbackSearchQuery += ` with ${instrumentQueryPart}`;
+            }
         }
     }
     console.log("interpretMusicalIntentFlow output:", output);
@@ -230,3 +236,6 @@ const interpretMusicalIntentFlow = ai.defineFlow(
 export async function interpretMusicalIntent(input: InterpretMusicalIntentInput): Promise<InterpretMusicalIntentOutput> {
   return interpretMusicalIntentFlow(input);
 }
+
+
+    
