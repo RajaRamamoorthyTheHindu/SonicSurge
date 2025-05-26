@@ -20,9 +20,9 @@ import { Loader2, Mic, AlertTriangle, StopCircle, UploadCloud } from 'lucide-rea
 const formSchema = z.object({
   songName: z.string().optional(),
   artistName: z.string().optional(),
-  moodDescription: z.string().optional(), // Made optional
+  moodDescription: z.string().optional(),
   instrumentTags: z.string().optional(),
-  genre: z.string().optional(), // Made optional
+  genre: z.string().optional(),
   songLink: z.string().url({ message: 'Please enter a valid URL.' }).optional().or(z.literal('')),
 });
 
@@ -191,23 +191,16 @@ export function FindYourVibe({ onResultsFetched, setIsLoadingGlobal }: FindYourV
   };
 
   async function onSubmit(values: FormValues) {
-    // Removed the check for songName, audioDataUri, or songLink
-    // if (!values.songName && !audioDataUri && !values.songLink) {
-    //   form.setError('songName', { type: 'manual', message: 'Please provide a Song Name, URL or record a snippet.' });
-    //   toast({ title: 'Input Missing', description: 'Please provide a Song Name, URL or record a snippet to find similar songs.', variant: 'destructive' });
-    //   return;
-    // }
-    
     setIsLoading(true);
     setIsLoadingGlobal(true);
 
     const aiInput: InterpretMusicalIntentInput = {
       songName: values.songName || '',
-      artistName: values.artistName || '', // Ensure empty string if undefined
-      moodDescription: values.moodDescription || '', // Ensure empty string if undefined
+      artistName: values.artistName || '', 
+      moodDescription: values.moodDescription || '',
       instrumentTags: values.instrumentTags || '',
-      genre: values.genre || '', // Ensure empty string if undefined
-      songLink: values.songLink || '', // Ensure empty string if undefined
+      genre: values.genre === 'no_preference_selected' ? '' : values.genre || '', // Pass empty string if "No Preference"
+      songLink: values.songLink || '',
       audioSnippet: audioDataUri || undefined,
     };
 
@@ -247,9 +240,6 @@ export function FindYourVibe({ onResultsFetched, setIsLoadingGlobal }: FindYourV
                 <div>
                   <Label htmlFor="songName" className="text-foreground">Song Name</Label>
                   <Input id="songName" placeholder="e.g., Bohemian Rhapsody" {...form.register('songName')} className="bg-input placeholder:text-muted-foreground/70" />
-                  {/* Removed error display for songName as it's now optional from a user perspective
-                  {form.formState.errors.songName && <p className="text-sm text-destructive mt-1">{form.formState.errors.songName.message}</p>}
-                  */}
                 </div>
                 <div>
                   <Label htmlFor="artistName" className="text-foreground">Artist Name (Optional)</Label>
@@ -279,12 +269,12 @@ export function FindYourVibe({ onResultsFetched, setIsLoadingGlobal }: FindYourV
                     control={form.control}
                     name="genre"
                     render={({ field }) => (
-                      <Select onValueChange={field.onChange} value={field.value || ''}> {/* Ensure value is controlled */}
+                      <Select onValueChange={field.onChange} value={field.value || ''}>
                         <SelectTrigger id="genre" className="bg-input placeholder:text-muted-foreground/70">
                           <SelectValue placeholder="Select a genre" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">No Preference</SelectItem> {/* Added option for no preference */}
+                          <SelectItem value="no_preference_selected">No Preference</SelectItem>
                           {genres.map(g => <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>)}
                         </SelectContent>
                       </Select>
