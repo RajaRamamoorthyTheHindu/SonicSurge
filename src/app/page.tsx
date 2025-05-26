@@ -9,30 +9,12 @@ import { SonicMatches } from '@/components/sonic-matches';
 import type { Song } from '@/types';
 import type { InterpretMusicalIntentInput, InterpretMusicalIntentOutput as AIOutput } from '@/ai/flows/interpret-musical-intent';
 import { interpretMusicalIntent } from '@/ai/flows/interpret-musical-intent';
-import { fetchSpotifyTrackDetailsAction, type SpotifyTrackDetails } from '@/actions/fetch-spotify-track-details-action';
+// import { fetchSpotifyTrackDetailsAction, type SpotifyTrackDetails } from '@/actions/fetch-spotify-track-details-action'; // Removed
 import { fetchSpotifyTracksAction } from '@/actions/fetch-spotify-tracks-action';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 
 const SONGS_PER_PAGE = 5;
-
-// Helper to extract Spotify track ID from various URL formats
-function extractSpotifyTrackId(url: string): string | null {
-  try {
-    const parsedUrl = new URL(url);
-    if (parsedUrl.hostname === 'open.spotify.com' && parsedUrl.pathname.includes('/track/')) {
-      const parts = parsedUrl.pathname.split('/');
-      return parts[parts.indexOf('track') + 1] || null;
-    }
-  } catch (e) {
-    // Invalid URL
-  }
-  // Regex for other Spotify URI/URL forms (e.g. spotify:track:TRACK_ID)
-  const spotifyRegex = /(?:spotify:track:|open\.spotify\.com\/track\/)([a-zA-Z0-9]+)/;
-  const match = url.match(spotifyRegex);
-  return match ? match[1] : null;
-}
-
 
 export default function Home() {
   const { toast } = useToast();
@@ -46,10 +28,9 @@ export default function Home() {
   const [showResults, setShowResults] = useState(false);
   const [currentOffset, setCurrentOffset] = useState(0);
   const [totalSongsAvailable, setTotalSongsAvailable] = useState(0);
-  // const [audioDataUriForAI, setAudioDataUriForAI] = useState<string | null>(null); // Removed, will use param directly
 
 
-  const handleSearchSubmit = async (formValuesFromForm: FindYourVibeFormValues, audioDataUriFromForm?: string | null) => {
+  const handleSearchSubmit = async (formValuesFromForm: FindYourVibeFormValues) => {
     setIsLoadingSearch(true);
     setRecommendedSongs([]);
     setCurrentOffset(0);
@@ -57,44 +38,12 @@ export default function Home() {
     setShowResults(false);
     setAiInterpretation(null);
     setCurrentFormValues(formValuesFromForm);
-    // setAudioDataUriForAI(audioDataUriFromForm || null); // No longer setting state here for immediate use
-
-
-    let derivedMetadata: SpotifyTrackDetails | null = null;
-    if (formValuesFromForm.songLink) {
-      const spotifyTrackId = extractSpotifyTrackId(formValuesFromForm.songLink);
-      if (spotifyTrackId) {
-        try {
-          derivedMetadata = await fetchSpotifyTrackDetailsAction(spotifyTrackId);
-          if (!derivedMetadata) {
-            toast({
-              title: 'Could Not Fetch Link Details',
-              description: "We couldn't get all details for the Spotify link provided, but we'll still try to use it.",
-              variant: 'default',
-            });
-          }
-        } catch (error) {
-          console.error("Error fetching Spotify track details:", error);
-          toast({
-            title: 'Error Fetching Link Details',
-            description: "There was an issue processing the song link. The AI will use the link URL directly.",
-            variant: 'destructive',
-          });
-        }
-      } else {
-         console.log("Non-Spotify link or ID extraction failed, passing link to AI:", formValuesFromForm.songLink);
-      }
-    }
 
     const aiInput: InterpretMusicalIntentInput = {
       moodDescription: formValuesFromForm.moodDescription,
       songName: formValuesFromForm.songName,
       artistName: formValuesFromForm.artistName,
       instrumentTags: formValuesFromForm.instrumentTags,
-      genre: formValuesFromForm.genre === 'no_preference_selected' ? undefined : formValuesFromForm.genre,
-      songLink: formValuesFromForm.songLink || undefined,
-      derivedTrackMetadata: derivedMetadata || undefined,
-      audioSnippet: audioDataUriFromForm || undefined, // Use the parameter directly
     };
     
     try {
@@ -180,8 +129,6 @@ export default function Home() {
       if (!isNewSearch) {
         setIsLoadingMore(false);
       }
-      // setShowResults(true); // This is already set inside try block, conditionally if needed.
-                           // Set true even on error for new search to clear loading state.
       if (isNewSearch) setShowResults(true);
     }
   };
