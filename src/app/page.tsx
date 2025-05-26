@@ -21,8 +21,8 @@ export default function Home() {
   const [currentFormValues, setCurrentFormValues] = useState<FindYourVibeFormValues | null>(null);
   const [recommendedSongs, setRecommendedSongs] = useState<Song[]>([]);
   
-  const [isLoadingSearch, setIsLoadingSearch] = useState(false); // For initial AI interpretation + first song fetch
-  const [isLoadingMore, setIsLoadingMore] = useState(false); // For "Next 5" button
+  const [isLoadingSearch, setIsLoadingSearch] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false); 
 
   const [showResults, setShowResults] = useState(false);
   const [currentOffset, setCurrentOffset] = useState(0);
@@ -50,7 +50,8 @@ export default function Home() {
         });
         setShowResults(true); 
       }
-    } catch (error: any) {
+    } catch (error: any)
+{
       console.error('Error in search submission:', error);
       toast({
         title: 'Error Interpreting Intent',
@@ -72,7 +73,6 @@ export default function Home() {
     if (!isNewSearch) {
       setIsLoadingMore(true);
     }
-    // If it is a new search, setIsLoadingSearch is already true from handleSearchSubmit
 
     try {
       const { songs: newSongs, total: totalFromServer } = await fetchSpotifyTracksAction(
@@ -90,7 +90,6 @@ export default function Home() {
       if (newSongs.length === 0 && !isNewSearch) {
           toast({ title: "No more songs found", variant: "default"});
       }
-      // Initial "no songs" case is handled by SonicMatches component
 
     } catch (error: any) {
       console.error('Error fetching songs:', error);
@@ -103,7 +102,6 @@ export default function Home() {
       if (!isNewSearch) {
         setIsLoadingMore(false);
       }
-      // For new searches, setIsLoadingSearch is handled by handleSearchSubmit's finally block
     }
   };
   
@@ -115,10 +113,9 @@ export default function Home() {
     loadSongs(aiInterpretation, currentFormValues, currentOffset, false);
   };
 
-  // Scroll to results when they are shown for the first time
   useEffect(() => {
-    if (showResults && recommendedSongs.length <= SONGS_PER_PAGE && recommendedSongs.length > 0) { // Only scroll on initial batch
-      const resultsSection = document.getElementById('sonic-matches');
+    if (showResults && recommendedSongs.length <= SONGS_PER_PAGE && recommendedSongs.length > 0) { 
+      const resultsSection = document.getElementById('sonic-matches-results');
       resultsSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   }, [showResults, recommendedSongs.length]);
@@ -128,20 +125,23 @@ export default function Home() {
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
       <Header />
-      <main className="flex-grow container mx-auto px-4 py-8 md:py-12">
+      <main className="flex-grow container mx-auto px-4 py-10 md:py-16">
+        <h1 className="explainer-text">
+          Tell us the vibe, we&apos;ll find your song.
+        </h1>
         <div className="animate-fade-in">
           <FindYourVibe onSearchInitiated={handleSearchSubmit} isParentSearching={isLoadingSearch} />
         </div>
         
         {isLoadingSearch && (
-          <div className="flex flex-col justify-center items-center py-10 mt-8 space-y-3 animate-fade-in">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <div className="flex flex-col justify-center items-center py-12 mt-10 space-y-4 animate-fade-in">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
             <p className="text-lg font-semibold text-foreground">Finding your vibe…</p>
           </div>
         )}
 
         {showResults && !isLoadingSearch && (
-          <div className="mt-12 md:mt-16 animate-slide-up">
+          <div id="sonic-matches-results" className="mt-12 md:mt-16 animate-slide-up">
              <SonicMatches 
                aiInterpretation={aiInterpretation} 
                songs={recommendedSongs}

@@ -1,7 +1,7 @@
 import type { Config } from "tailwindcss";
 
 export default {
-    darkMode: "class", // Keep 'class' for manual toggling if ever needed
+    darkMode: "class", // Kept for potential future use, but app defaults to light.
     content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -63,16 +63,26 @@ export default {
           border: 'hsl(var(--sidebar-border))',
           ring: 'hsl(var(--sidebar-ring))'
         },
-        // Explicitly adding Apple colors for easier direct use if needed
-        'apple-red-light': '#FF3B30',
-        'apple-red-dark': '#FF453A',
       },
       borderRadius: {
-        lg: 'var(--radius)', // 12px
-        md: 'calc(var(--radius) - 4px)', // 8px
-        sm: 'calc(var(--radius) - 6px)', // 6px
-        xl: 'calc(var(--radius) + 4px)', // 16px
-        '2xl': 'calc(var(--radius) + 8px)', // 20px
+        lg: 'var(--radius)', 
+        md: 'calc(var(--radius) - 4px)', 
+        sm: 'calc(var(--radius) - 6px)', 
+        xl: 'calc(var(--radius) + 4px)', 
+        '2xl': 'calc(var(--radius) + 8px)',
+      },
+      fontSize: {
+        'xs': '.75rem',    // 12px
+        'sm': '.875rem',   // 14px
+        'base': '1rem',    // 16px
+        'lg': '1.125rem',  // 18px
+        'xl': '1.25rem',   // 20px
+        '2xl': '1.5rem',  // 24px
+      },
+      boxShadow: {
+        'md': '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+        'lg': '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
+        'subtle': '0 4px 12px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0,0,0,0.05)',
       },
       keyframes: {
         'accordion-down': {
