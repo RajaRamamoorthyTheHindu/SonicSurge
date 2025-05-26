@@ -130,7 +130,7 @@ Preferred Artist Name: {{{artistName}}}
 Preferred Instruments: {{{instrumentTags}}}
 
 You have access to the following tools:
-- \`getValidSpotifyGenresTool()\`: Fetches all valid Spotify genre seeds.
+- \`getValidSpotifyGenresTool()\`: Fetches the *complete and definitive list* of all valid Spotify genre seeds.
 - \`getSpotifyArtistIdTool({ artistName: string })\`: Searches for an artist and returns their Spotify ID.
 - \`getSpotifyTrackIdTool({ trackName: string, artistName?: string })\`: Searches for a track and returns its Spotify ID.
 
@@ -149,14 +149,14 @@ Detailed Instructions:
     *   If the user provided an \`artistName\`, use the \`getSpotifyArtistIdTool\` to get their Spotify Artist ID. If an ID is found, include it in \`seed_artists\`.
 
 3.  **Seed Genres (\`seed_genres\`)**:
-    *   First, call \`getValidSpotifyGenresTool\` to obtain the list of all valid Spotify genre seeds.
-    *   Based on the \`moodDescription\` and any other clues (like \`instrumentTags\` or themes from provided song/artist names), select up to 5 suitable genres.
-    *   **CRITICAL**: Every genre you include in \`seed_genres\` MUST be present in the list returned by \`getValidSpotifyGenresTool\`. Do not invent genres or use instrument names as genres. If a user's mood implies a genre not on the list, try to map it to the closest valid one(s) or omit it.
+    *   First, **you MUST call \`getValidSpotifyGenresTool()\`** to obtain the list of all valid Spotify genre seeds. This list is the ONLY source for valid genres.
+    *   Based on the \`moodDescription\` and any other clues (like \`instrumentTags\` or themes from provided song/artist names), select up to 5 suitable genres for the \`seed_genres\` array.
+    *   **CRITICAL**: Every genre you include in \`seed_genres\` MUST BE AN EXACT MATCH from the list returned by \`getValidSpotifyGenresTool\`. Do not invent genres, use variations, or attempt fuzzy matches yourself. Do not use instrument names (e.g., "piano", "guitar") as genres. If the user's mood implies a genre not on the tool's list, try to map it to the closest valid one(s) from the tool's list. If no suitable exact matches can be found from the tool's list, it is better to have an empty \`seed_genres\` array or use a very broad, valid genre (like "pop" or "electronic") from the tool's list if truly applicable and no other seeds are available.
 
 4.  **Instrument Tags (\`instrumentTags\`)**:
     *   If \`instrumentTags\` are provided (e.g., 'guitar, saxophone'), use this information primarily to:
         a.  Influence the \`target_instrumentalness\` value (a float between 0.0 and 1.0, where 1.0 represents high instrumentalness / no vocals). For example, 'solo piano' suggests high instrumentalness.
-        b.  Help select *valid Spotify genres* for the \`seed_genres\` array. For example, if 'piano' is mentioned, you might consider 'classical' or 'jazz' if they are valid genres.
+        b.  Help select *valid Spotify genres* (from the list provided by \`getValidSpotifyGenresTool\`) for the \`seed_genres\` array. For example, if 'piano' is mentioned, you might consider 'classical' or 'jazz' *if they are on the valid genre list returned by the tool*.
     *   **Do NOT use instrument names themselves as entries in the \`seed_genres\` array.**
 
 5.  **Target Audio Features (\`target_energy\`, \`target_danceability\`, etc.)**:
@@ -164,20 +164,11 @@ Detailed Instructions:
 
 IMPORTANT:
 - If, after using the tools and analyzing the inputs, you can confidently determine seeds (track, artist, or genre), prioritize populating \`seed_tracks\`, \`seed_artists\`, and \`seed_genres\` along with any relevant \`target_*\` values.
-- If you CANNOT confidently determine specific seeds (e.g., tools return no IDs, mood is too vague for valid genres), THEN provide a \`fallbackSearchQuery\` string. This query should be a descriptive search term for Spotify (e.g., "upbeat electronic music for '{{{moodDescription}}}'", "instrumental '{{{instrumentTags}}}' music for '{{{moodDescription}}}'").
+- If you CANNOT confidently determine specific seeds (e.g., tools return no IDs, mood is too vague for valid genres from the tool's list), THEN provide a \`fallbackSearchQuery\` string. This query should be a descriptive search term for Spotify (e.g., "upbeat electronic music for '{{{moodDescription}}}'", "instrumental '{{{instrumentTags}}}' music for '{{{moodDescription}}}'").
 - The \`fallbackSearchQuery\` should ONLY be used if no seeds can be generated. Do not provide both seeds and a fallbackSearchQuery.
 - Only include fields in the JSON response if you have a value for them.
 - Ensure the output is valid JSON matching the schema.
 `,
-  // Example of relaxed safety settings if needed, though default is usually fine.
-  // config: {
-  //   safetySettings: [
-  //     {
-  //       category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
-  //       threshold: 'BLOCK_NONE',
-  //     },
-  //   ],
-  // },
 });
 
 // +---------------------+
@@ -236,6 +227,3 @@ const interpretMusicalIntentFlow = ai.defineFlow(
 export async function interpretMusicalIntent(input: InterpretMusicalIntentInput): Promise<InterpretMusicalIntentOutput> {
   return interpretMusicalIntentFlow(input);
 }
-
-
-    
