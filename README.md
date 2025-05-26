@@ -1,3 +1,4 @@
+
 # SonicSurge - Music Discovery App
 
 SonicSurge is a Next.js application designed to help users discover new music based on their mood, preferences, or even by analyzing audio snippets. It leverages AI to interpret musical intent and fetches recommendations from the Spotify API.
@@ -8,6 +9,7 @@ SonicSurge is a Next.js application designed to help users discover new music ba
 -   **Advanced Filtering**: Refine your search with song name, artist, and key instruments.
 -   **Spotify Integration**: Fetches real song data and recommendations from Spotify.
 -   **AI-Powered Intent Interpretation**: Uses Genkit with Gemini to translate user input into actionable search parameters.
+-   **In-App Playback**: Listen to song previews directly within the app using Spotify's embedded player.
 -   **Responsive Design**: Adapts to various screen sizes for a seamless experience.
 
 ## Prerequisites
@@ -47,6 +49,7 @@ SonicSurge requires API keys for Spotify and configuration for Google AI (Gemini
     -   `SPOTIFY_CLIENT_ID`: Your Spotify application Client ID.
     -   `SPOTIFY_CLIENT_SECRET`: Your Spotify application Client Secret.
     -   You can get these from the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard/).
+    -   `GOOGLE_API_KEY` (Optional): If you are not using Google Cloud Application Default Credentials (ADC), you can provide a Google API key for Gemini access.
 
 -   **Google Cloud / Genkit Authentication (for Gemini)**:
     For local development, Genkit typically uses Application Default Credentials (ADC).
@@ -55,7 +58,7 @@ SonicSurge requires API keys for Spotify and configuration for Google AI (Gemini
         ```bash
         gcloud auth application-default login
         ```
-    3.  Make sure your Google Cloud project has the "Vertex AI API" enabled and your ADC user has the "Vertex AI User" role or equivalent permissions.
+    3.  Make sure your Google Cloud project has the "Vertex AI API" enabled and your ADC user has the "Vertex AI User" role or equivalent permissions. If you choose to use a `GOOGLE_API_KEY` instead, ensure it's enabled for the Gemini API.
 
 ### 4. Run the Development Servers
 
@@ -81,6 +84,16 @@ SonicSurge uses Next.js for the frontend and Genkit for the AI backend. You'll n
 ### 5. Open the App
 
 Navigate to `http://localhost:9002` (or the port Next.js is running on) in your browser.
+
+## In-App Listening
+
+SonicSurge allows you to listen to song previews directly within the app.
+- In the song results table, each track will have a "Listen" button.
+- Clicking this button will toggle an embedded Spotify player for that specific track.
+- The player appears directly below the song row and allows you to play a ~30-second preview (standard for Spotify embeds without premium user login).
+- Click "Close" (which the "Listen" button changes to) to hide the player.
+
+This feature uses Spotify's standard iframe embed and does not require any additional environment variables beyond your `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` for fetching track recommendations.
 
 ## Available Scripts
 
@@ -114,7 +127,7 @@ To deploy:
 4.  Set up your backend in Firebase App Hosting.
 5.  Deploy: `firebase apphosting:backends:deploy`.
 
-Make sure to configure your environment variables (Spotify Client ID/Secret) in the Firebase App Hosting environment settings. For Google Cloud services like Gemini, ensure the App Hosting service account has the necessary IAM permissions (e.g., "Vertex AI User").
+Make sure to configure your environment variables (Spotify Client ID/Secret, optionally Google API Key) in the Firebase App Hosting environment settings. For Google Cloud services like Gemini, ensure the App Hosting service account has the necessary IAM permissions (e.g., "Vertex AI User").
 
 ## License
 
@@ -129,3 +142,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 -   `src/components/`: React components, including UI elements from ShadCN.
 -   `src/services/`: Service integrations, like the Spotify service.
 -   `src/app/`: Next.js App Router pages and layouts.
+
+```
