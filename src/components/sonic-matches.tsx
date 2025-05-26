@@ -1,3 +1,4 @@
+
 import type { Song, InterpretMusicalIntentOutput } from '@/types';
 import { SongCard } from '@/components/song-card';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -64,7 +65,7 @@ export function SonicMatches({ aiInterpretation, songs }: SonicMatchesProps) {
                 </div>
               )}
               {aiInterpretation.tempo && (
-                <p><strong className="font-medium text-foreground/80 text-xs uppercase tracking-wider">Tempo:</strong> <Badge variant="secondary" className="bg-foreground/10 text-foreground/90 font-normal">{aiInterpretation.tempo}</Badge></p>
+                <div><strong className="font-medium text-foreground/80 text-xs uppercase tracking-wider">Tempo:</strong> <Badge variant="secondary" className="bg-foreground/10 text-foreground/90 font-normal">{aiInterpretation.tempo}</Badge></div>
               )}
               {aiInterpretation.genreAffinities && aiInterpretation.genreAffinities.length > 0 && (
                 <div>
