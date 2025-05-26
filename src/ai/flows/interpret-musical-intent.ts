@@ -142,11 +142,13 @@ Your main goal is to provide parameters for Spotify's recommendations endpoint.
 
 Detailed Instructions:
 1.  **Seed Tracks (\`seed_tracks\`)**:
-    *   If the user provided a \`songName\`, use the \`getSpotifyTrackIdTool\` (passing \`songName\` and optional \`artistName\`) to get its Spotify Track ID. If an ID is found, include it in \`seed_tracks\`.
+    *   If the user provided a \`songName\`, use the \`getSpotifyTrackIdTool\` (passing \`songName\` and optional \`artistName\`) to get its Spotify Track ID. 
+    *   If an ID is found and is a valid string, include it in \`seed_tracks\`. If the tool returns null or no ID, do not include anything for that song in \`seed_tracks\`.
     *   If \`instrumentTags\` strongly suggest a specific, well-known instrumental track, you *may* attempt to find its ID using \`getSpotifyTrackIdTool\`.
 
 2.  **Seed Artists (\`seed_artists\`)**:
-    *   If the user provided an \`artistName\`, use the \`getSpotifyArtistIdTool\` to get their Spotify Artist ID. If an ID is found, include it in \`seed_artists\`.
+    *   If the user provided an \`artistName\`, use the \`getSpotifyArtistIdTool\` to get their Spotify Artist ID. 
+    *   If an ID is found and is a valid string, include it in \`seed_artists\`. If the tool returns null or no ID, do not include anything for that artist in \`seed_artists\`.
 
 3.  **Seed Genres (\`seed_genres\`)**:
     *   First, **you MUST call \`getValidSpotifyGenresTool()\`** to obtain the list of all valid Spotify genre seeds. This list is the ONLY source for valid genres.
@@ -163,9 +165,9 @@ Detailed Instructions:
     *   Infer these values from the \`moodDescription\` and other inputs. For example, "workout hype" suggests high energy and danceability. "Chill study session" suggests lower energy.
 
 IMPORTANT:
-- If, after using the tools and analyzing the inputs, you can confidently determine seeds (track, artist, or genre), prioritize populating \`seed_tracks\`, \`seed_artists\`, and \`seed_genres\` along with any relevant \`target_*\` values.
-- If you CANNOT confidently determine specific seeds (e.g., tools return no IDs, mood is too vague for valid genres from the tool's list), THEN provide a \`fallbackSearchQuery\` string. This query should be a descriptive search term for Spotify (e.g., "upbeat electronic music for '{{{moodDescription}}}'", "instrumental '{{{instrumentTags}}}' music for '{{{moodDescription}}}'").
-- The \`fallbackSearchQuery\` should ONLY be used if no seeds can be generated. Do not provide both seeds and a fallbackSearchQuery.
+- If, after using the tools and analyzing the inputs, you can confidently determine seeds (track, artist, or genre resulting in valid string IDs), prioritize populating \`seed_tracks\`, \`seed_artists\`, and \`seed_genres\` along with any relevant \`target_*\` values.
+- If you CANNOT confidently determine specific seeds (e.g., tools return no IDs, mood is too vague for valid genres from the tool's list, or the total number of valid seed IDs across tracks, artists, and genres is zero), THEN you MUST provide a \`fallbackSearchQuery\` string. This query should be a descriptive search term for Spotify (e.g., "upbeat electronic music for '{{{moodDescription}}}'", "instrumental '{{{instrumentTags}}}' music for '{{{moodDescription}}}'").
+- The \`fallbackSearchQuery\` should ONLY be used if no valid seeds can be generated. Do not provide both seeds and a fallbackSearchQuery.
 - Only include fields in the JSON response if you have a value for them.
 - Ensure the output is valid JSON matching the schema.
 `,
@@ -205,11 +207,11 @@ const interpretMusicalIntentFlow = ai.defineFlow(
     }
     
     // If AI provided neither seeds nor a fallback, create a fallback.
+    // This is a safety net. The prompt already instructs the AI to generate a fallback if no seeds.
     if (totalSeeds === 0 && !output.fallbackSearchQuery) {
         console.warn("AI returned no seeds and no fallback query. Forcing a fallback.", output);
         output.fallbackSearchQuery = input.moodDescription ? `music for ${input.moodDescription}` : "popular music";
         if (input.instrumentTags && output.fallbackSearchQuery && !output.fallbackSearchQuery.includes(input.instrumentTags)) {
-            // Append instrument tags to the fallback query if they exist and aren't already implicitly included
             const instrumentQueryPart = typeof input.instrumentTags === 'string' ? input.instrumentTags : '';
             if (instrumentQueryPart && !output.fallbackSearchQuery.toLowerCase().includes(instrumentQueryPart.toLowerCase())) {
                  output.fallbackSearchQuery += ` with ${instrumentQueryPart}`;
@@ -227,3 +229,4 @@ const interpretMusicalIntentFlow = ai.defineFlow(
 export async function interpretMusicalIntent(input: InterpretMusicalIntentInput): Promise<InterpretMusicalIntentOutput> {
   return interpretMusicalIntentFlow(input);
 }
+
