@@ -19,7 +19,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark"> {/* Defaulting to dark theme as per original PRD */}
+    <html lang="en" className="dark">{/* Defaulting to dark theme as per original PRD */}
       <body className={`${inter.variable} font-sans antialiased bg-background text-foreground`}> {/* Use inter variable and add font-sans for Tailwind to pick it up */}
         {children}
         <Toaster />
