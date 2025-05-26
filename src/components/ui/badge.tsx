@@ -10,11 +10,11 @@ const badgeVariants = cva(
       variant: {
         default:
           "border-transparent bg-primary text-primary-foreground hover:bg-primary/80",
-        secondary:
-          "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        secondary: // Updated for Apple aesthetic: subtle background, clear text
+          "border-transparent bg-foreground/10 text-foreground/90 hover:bg-foreground/20",
         destructive:
           "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
-        outline: "text-foreground",
+        outline: "text-foreground border-foreground/20", // More subtle outline
       },
     },
     defaultVariants: {

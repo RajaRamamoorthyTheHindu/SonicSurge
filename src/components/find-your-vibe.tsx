@@ -14,9 +14,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { interpretMusicalIntent, InterpretMusicalIntentInput } from '@/ai/flows/interpret-musical-intent';
 import { analyzeAudioSnippet } from '@/ai/flows/analyze-audio-snippet';
-import { fetchSpotifyTracksAction } from '@/actions/fetch-spotify-tracks-action'; // Import the server action
+import { fetchSpotifyTracksAction } from '@/actions/fetch-spotify-tracks-action';
 import type { Song, InterpretMusicalIntentOutput as AIOutput, Genre } from '@/types';
-import { Loader2, Mic, AlertTriangle, StopCircle, UploadCloud } from 'lucide-react';
+import { Loader2, Mic, StopCircle, UploadCloud, Music2 } from 'lucide-react';
 
 const formSchema = z.object({
   songName: z.string().optional(),
@@ -76,24 +76,24 @@ export function FindYourVibe({ onResultsFetched, setIsLoadingGlobal }: FindYourV
   });
 
   useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
     if (isRecording) {
       setRecordingTime(0);
-      recordingIntervalRef.current = setInterval(() => {
+      interval = setInterval(() => {
         setRecordingTime(prev => {
-          if (prev >= 15) {
+          if (prev >= 14) { // Stop at 14 to trigger stopRecording before it hits 15 exactly
             stopRecording();
             return 15;
           }
           return prev + 1;
         });
       }, 1000);
-    } else {
-      if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
     }
     return () => {
-      if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
+      if (interval) clearInterval(interval);
     };
   }, [isRecording]);
+
 
   const handleRecordSnippet = async () => {
     if (isRecording) {
@@ -109,7 +109,7 @@ export function FindYourVibe({ onResultsFetched, setIsLoadingGlobal }: FindYourV
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       setIsRecording(true);
-      setAudioDataUri(null); 
+      setAudioDataUri(null);
       setRecordedFileName(null);
       audioChunksRef.current = [];
       mediaRecorderRef.current = new MediaRecorder(stream);
@@ -117,7 +117,7 @@ export function FindYourVibe({ onResultsFetched, setIsLoadingGlobal }: FindYourV
         audioChunksRef.current.push(event.data);
       };
       mediaRecorderRef.current.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' }); 
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         const reader = new FileReader();
         reader.readAsDataURL(audioBlob);
         reader.onloadend = () => {
@@ -126,7 +126,7 @@ export function FindYourVibe({ onResultsFetched, setIsLoadingGlobal }: FindYourV
           setRecordedFileName(`recording-${Date.now()}.webm`);
           processAudioSnippet(base64Audio);
         };
-        stream.getTracks().forEach(track => track.stop()); 
+        stream.getTracks().forEach(track => track.stop());
       };
       mediaRecorderRef.current.start();
       toast({ title: 'Recording Started', description: 'Recording for up to 15 seconds...' });
@@ -138,14 +138,13 @@ export function FindYourVibe({ onResultsFetched, setIsLoadingGlobal }: FindYourV
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
-      if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
       toast({ title: 'Recording Stopped', description: 'Processing audio snippet...' });
     }
   };
-  
+
   const processAudioSnippet = async (dataUri: string) => {
     setIsProcessingSnippet(true);
     try {
@@ -163,7 +162,7 @@ export function FindYourVibe({ onResultsFetched, setIsLoadingGlobal }: FindYourV
         description: error.message || 'Could not analyze the audio snippet. Please try again.',
         variant: 'destructive',
       });
-      setAudioDataUri(null); 
+      setAudioDataUri(null);
       setRecordedFileName(null);
     } finally {
       setIsProcessingSnippet(false);
@@ -171,13 +170,21 @@ export function FindYourVibe({ onResultsFetched, setIsLoadingGlobal }: FindYourV
   };
 
   async function onSubmit(values: FormValues) {
+    if (!values.songName && !values.artistName && !values.moodDescription && !values.instrumentTags && !values.genre && !values.songLink && !audioDataUri) {
+      toast({
+        title: 'No Input Provided',
+        description: 'Please provide some information to find your vibe.',
+        variant: 'destructive',
+      });
+      return;
+    }
     setIsLoading(true);
     setIsLoadingGlobal(true);
-    onResultsFetched(null, []); // Clear previous results
+    onResultsFetched(null, []);
 
     const aiInput: InterpretMusicalIntentInput = {
       songName: values.songName || '',
-      artistName: values.artistName || '', 
+      artistName: values.artistName || '',
       moodDescription: values.moodDescription || '',
       instrumentTags: values.instrumentTags || '',
       genre: values.genre === 'no_preference_selected' ? '' : values.genre || '',
@@ -187,16 +194,14 @@ export function FindYourVibe({ onResultsFetched, setIsLoadingGlobal }: FindYourV
 
     try {
       const aiInterpretation = await interpretMusicalIntent(aiInput);
-      
       let songs: Song[] = [];
       if (aiInterpretation) {
-        // Pass both AI interpretation and relevant form values to the action
         songs = await fetchSpotifyTracksAction(aiInterpretation, { songName: values.songName, artistName: values.artistName });
         if (songs.length === 0 && (values.songName || values.artistName || values.genre || values.moodDescription)) {
            toast({
-            title: 'No exact matches found',
-            description: "Couldn't find exact matches. Broadening search based on AI interpretation.",
-            variant: 'default',
+            title: 'No matches found',
+            description: "Couldn't find specific matches based on your input. Try broadening your search.",
+            variant: 'default', // Changed from destructive to default for less alarming message
           });
         }
       } else {
@@ -206,16 +211,7 @@ export function FindYourVibe({ onResultsFetched, setIsLoadingGlobal }: FindYourV
             variant: 'destructive',
           });
       }
-      
       onResultsFetched(aiInterpretation, songs);
-
-      if (songs.length > 0 || aiInterpretation) {
-        setTimeout(() => {
-            const resultsSection = document.getElementById('sonic-matches');
-            resultsSection?.scrollIntoView({ behavior: 'smooth' });
-        }, 100);
-      }
-
     } catch (error: any) {
       console.error('Error in submission process:', error);
       toast({
@@ -223,7 +219,7 @@ export function FindYourVibe({ onResultsFetched, setIsLoadingGlobal }: FindYourV
         description: error.message || 'Could not fetch recommendations. Please try again.',
         variant: 'destructive',
       });
-      onResultsFetched(null, []); 
+      onResultsFetched(null, []);
     } finally {
       setIsLoading(false);
       setIsLoadingGlobal(false);
@@ -231,96 +227,102 @@ export function FindYourVibe({ onResultsFetched, setIsLoadingGlobal }: FindYourV
   }
 
   return (
-    <section className="py-8 md:py-12 w-full bg-gradient-to-br from-background to-card">
-      <div className="container mx-auto">
-        <Card className="max-w-2xl mx-auto bg-card/80 backdrop-blur-sm shadow-2xl">
-          <CardHeader>
-            <CardTitle className="text-3xl font-bold text-center text-primary-foreground">Find Your Vibe</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <Label htmlFor="songName" className="text-foreground">Song Name</Label>
-                  <Input id="songName" placeholder="e.g., Bohemian Rhapsody" {...form.register('songName')} className="bg-input placeholder:text-muted-foreground/70" />
-                </div>
-                <div>
-                  <Label htmlFor="artistName" className="text-foreground">Artist Name (Optional)</Label>
-                  <Input id="artistName" placeholder="e.g., Queen" {...form.register('artistName')} className="bg-input placeholder:text-muted-foreground/70" />
-                </div>
-              </div>
-
+    <section className="w-full">
+      <Card className="max-w-2xl mx-auto apple-card apple-subtle-shadow">
+        <CardHeader className="pb-4 pt-2"> {/* Reduced padding for header to be more compact */}
+          <CardTitle className="text-2xl font-semibold text-center text-foreground">Find Your Vibe</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-4"> {/* Adjusted padding */}
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-5">
               <div>
-                <Label htmlFor="moodDescription" className="text-foreground">Feeling/Mood Description</Label>
-                <Textarea
-                  id="moodDescription"
-                  placeholder="e.g., Energetic and upbeat, perfect for a workout"
-                  {...form.register('moodDescription')}
-                  className="bg-input placeholder:text-muted-foreground/70 min-h-[100px]"
+                <Label htmlFor="songName" className="text-sm font-medium text-foreground/80 mb-1 block">Song Name</Label>
+                <Input id="songName" placeholder="e.g., Levitating" {...form.register('songName')} className="apple-input" />
+              </div>
+              <div>
+                <Label htmlFor="artistName" className="text-sm font-medium text-foreground/80 mb-1 block">Artist Name</Label>
+                <Input id="artistName" placeholder="e.g., Dua Lipa" {...form.register('artistName')} className="apple-input" />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="moodDescription" className="text-sm font-medium text-foreground/80 mb-1 block">Mood / Vibe</Label>
+              <Textarea
+                id="moodDescription"
+                placeholder="e.g., Upbeat, good for a party"
+                {...form.register('moodDescription')}
+                className="apple-input min-h-[80px]"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-5">
+              <div>
+                <Label htmlFor="instrumentTags" className="text-sm font-medium text-foreground/80 mb-1 block">Key Instruments</Label>
+                <Input id="instrumentTags" placeholder="e.g., synth, bass, drums" {...form.register('instrumentTags')} className="apple-input" />
+              </div>
+              <div>
+                <Label htmlFor="genre" className="text-sm font-medium text-foreground/80 mb-1 block">Genre</Label>
+                <Controller
+                  control={form.control}
+                  name="genre"
+                  render={({ field }) => (
+                    <Select onValueChange={field.onChange} value={field.value || ''} >
+                      <SelectTrigger id="genre" className="apple-input">
+                        <SelectValue placeholder="Select a genre" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="no_preference_selected">No Preference</SelectItem>
+                        {genres.map(g => <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  )}
                 />
               </div>
+            </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <Label htmlFor="instrumentTags" className="text-foreground">Key Instruments (comma-separated, Optional)</Label>
-                  <Input id="instrumentTags" placeholder="e.g., guitar, piano, synth" {...form.register('instrumentTags')} className="bg-input placeholder:text-muted-foreground/70" />
-                </div>
-                <div>
-                  <Label htmlFor="genre" className="text-foreground">Genre</Label>
-                  <Controller
-                    control={form.control}
-                    name="genre"
-                    render={({ field }) => (
-                      <Select onValueChange={field.onChange} value={field.value || ''} >
-                        <SelectTrigger id="genre" className="bg-input placeholder:text-muted-foreground/70">
-                          <SelectValue placeholder="Select a genre" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="no_preference_selected">No Preference</SelectItem>
-                          {genres.map(g => <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
-                </div>
-              </div>
+            <div>
+              <Label htmlFor="songLink" className="text-sm font-medium text-foreground/80 mb-1 block">Song Link (Optional)</Label>
+              <Input id="songLink" type="url" placeholder="Paste a Spotify, YouTube, or Apple Music link" {...form.register('songLink')} className="apple-input"/>
+              {form.formState.errors.songLink && <p className="text-xs text-destructive mt-1">{form.formState.errors.songLink.message}</p>}
+            </div>
 
-              <div>
-                <Label htmlFor="songLink" className="text-foreground">Song Link (Spotify, YouTube, Apple Music - Optional)</Label>
-                <Input id="songLink" type="url" placeholder="https://open.spotify.com/track/..." {...form.register('songLink')} className="bg-input placeholder:text-muted-foreground/70"/>
-                {form.formState.errors.songLink && <p className="text-sm text-destructive mt-1">{form.formState.errors.songLink.message}</p>}
-              </div>
-              
-              <div className="space-y-2">
-                <Label className="text-foreground">Record Snippet (Optional)</Label>
-                <div className="flex items-center space-x-3">
-                  <Button type="button" variant="outline" onClick={handleRecordSnippet} disabled={isProcessingSnippet || isLoading} className="text-accent border-accent hover:bg-accent/10 hover:text-accent-foreground">
-                    {isRecording ? <StopCircle className="mr-2 h-5 w-5 animate-pulse" /> : <Mic className="mr-2 h-5 w-5" />}
-                    {isRecording ? `Stop Recording (${15 - recordingTime}s)` : 'Record Snippet'}
-                  </Button>
-                  {isProcessingSnippet && <Loader2 className="h-5 w-5 animate-spin text-accent" />}
-                  {recordedFileName && !isProcessingSnippet && !isRecording && (
-                    <div className="flex items-center text-sm text-green-400 bg-green-500/10 px-3 py-1.5 rounded-md">
-                      <UploadCloud className="mr-2 h-4 w-4" />
+            <div className="space-y-3">
+              <Label className="text-sm font-medium text-foreground/80">Record Snippet (Optional)</Label>
+              <div className="flex items-center space-x-4">
+                <button
+                  type="button"
+                  onClick={handleRecordSnippet}
+                  disabled={isProcessingSnippet || isLoading}
+                  className={`apple-record-button ${isRecording ? 'recording animate-pulse' : ''} focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background transition-all duration-150 ease-in-out`}
+                  aria-label={isRecording ? "Stop recording" : "Start recording"}
+                >
+                  {isRecording ? <StopCircle className="h-7 w-7 text-white" /> : <Mic className="h-7 w-7 text-white" />}
+                </button>
+                <div className="flex-grow">
+                  {isRecording && (
+                     <div className="w-full bg-muted rounded-full h-2">
+                       <div className="bg-primary h-2 rounded-full" style={{ width: `${(recordingTime / 15) * 100}%` }}></div>
+                     </div>
+                  )}
+                   {isProcessingSnippet && <div className="flex items-center space-x-2 text-sm text-foreground/80"><Loader2 className="h-4 w-4 animate-spin text-primary" /> <span>Processing...</span></div>}
+                   {recordedFileName && !isProcessingSnippet && !isRecording && (
+                    <div className="flex items-center text-xs text-green-500 dark:text-green-400 bg-green-500/10 dark:bg-green-400/10 px-2.5 py-1 rounded-md">
+                      <UploadCloud className="mr-1.5 h-4 w-4" />
                       <span>{recordedFileName} ready</span>
                     </div>
                   )}
+                  {!isRecording && !isProcessingSnippet && !recordedFileName && <p className="text-xs text-muted-foreground">Tap to record (max 15s)</p>}
                 </div>
-                {isRecording && (
-                   <div className="w-full bg-muted rounded-full h-2.5 dark:bg-gray-700 mt-2">
-                     <div className="bg-accent h-2.5 rounded-full" style={{ width: `${(recordingTime / 15) * 100}%` }}></div>
-                   </div>
-                )}
               </div>
+            </div>
 
-              <Button type="submit" disabled={isLoading || isRecording || isProcessingSnippet} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-lg py-6 shadow-lg hover:shadow-primary/40 transition-all duration-300">
-                {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
-                {isLoading ? 'Discovering...' : 'Find Similar Songs'}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
+            <Button type="submit" disabled={isLoading || isRecording || isProcessingSnippet} className="w-full apple-button text-base py-3 font-semibold">
+              {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Music2 className="mr-2 h-5 w-5" />}
+              {isLoading ? 'Discovering...' : 'Discover'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </section>
   );
 }

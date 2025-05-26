@@ -3,60 +3,108 @@
 @tailwind utilities;
 
 body {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 }
 
 @layer base {
   :root {
-    --background: 257 33% 12%; /* #1A1529 Dark Purple */
-    --foreground: 257 100% 91%; /* #E0D1FF Light Lavender */
+    /* Dark Mode (Default) - Inspired by Apple Music Dark Mode */
+    --background: 0 0% 0%; /* #000000 or near black like #121212 for less starkness, using #1C1C1E as per spec */
+    --background-rgb: 28, 28, 30; /* For opacity if needed */
+    --foreground: 0 0% 100%; /* #FFFFFF */
+    --foreground-rgb: 255, 255, 255;
 
-    --card: 257 27% 20%; /* #2C2640 Slightly Lighter Dark Purple */
-    --card-foreground: 257 100% 91%; /* #E0D1FF */
+    --card: 0 0% 17%; /* #2C2C2E - Input Backgrounds / Card Backgrounds */
+    --card-foreground: 0 0% 100%; /* #FFFFFF */
 
-    --popover: 257 27% 20%; /* #2C2640 */
-    --popover-foreground: 257 100% 91%; /* #E0D1FF */
+    --popover: 0 0% 17%; /* #2C2C2E */
+    --popover-foreground: 0 0% 100%; /* #FFFFFF */
 
-    --primary: 257 92% 76%; /* #A78BFA Vibrant Purple */
-    --primary-foreground: 257 33% 12%; /* #1A1529 Dark Purple for text on primary */
+    --primary: 4 100% 60%; /* Apple Red Dark: #FF453A */
+    --primary-foreground: 0 0% 100%; /* White text on red */
 
-    --secondary: 257 29% 34%; /* #4A3F70 Muted Purple */
-    --secondary-foreground: 257 100% 91%; /* #E0D1FF */
+    --secondary: 240 4% 63%; /* #A1A1A6 - Secondary Text */
+    --secondary-foreground: 0 0% 100%; /* White text on secondary (if used as bg) */
 
-    --muted: 257 25% 29%; /* #3D355E Darker Muted Purple */
-    --muted-foreground: 257 30% 70%; /* #A094C9 Lighter Muted Purple */
+    --muted: 0 0% 24%; /* #3C3C43 - Muted elements, subtle borders if not using --border */
+    --muted-foreground: 240 4% 63%; /* #A1A1A6 - Muted text */
 
-    --accent: 328 86% 70%; /* #F472B6 Vivid Pink */
-    --accent-foreground: 257 33% 12%; /* #1A1529 Dark Purple for text on accent */
+    --accent: 4 100% 60%; /* Apple Red Dark: #FF453A */
+    --accent-foreground: 0 0% 100%; /* White text on accent */
 
-    --destructive: 0 72% 51%; /* Adjusted for better visibility on dark bg */
-    --destructive-foreground: 0 0% 98%;
+    --destructive: 0 84% 60%; /* Standard destructive red */
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 257 25% 29%; /* #3D355E */
-    --input: 257 25% 29%; /* #3D355E */
-    --ring: 257 92% 76%; /* #A78BFA Primary color for focus rings */
+    --border: 0 0% 24%; /* #3C3C43 for subtle borders */
+    --input: 0 0% 22%; /* #38383A slightly different from card for inputs if needed, or use card */
+    --ring: 4 100% 60%; /* Apple Red Dark for focus rings */
 
-    --radius: 0.5rem;
+    --radius: 0.75rem; /* Apple often uses 8-12px, 0.75rem = 12px */
 
-    /* Chart colors can be adjusted if charts are used, otherwise keep defaults or theme them */
-    --chart-1: 257 92% 76%; /* Primary */
-    --chart-2: 328 86% 70%; /* Accent */
-    --chart-3: 257 29% 34%; /* Secondary */
-    --chart-4: 257 30% 70%; /* Muted Foreground */
-    --chart-5: 257 100% 91%; /* Foreground */
+    --chart-1: 4 100% 60%;
+    --chart-2: 210 100% 56%; /* A blue, typical for charts */
+    --chart-3: 120 100% 35%; /* A green */
+    --chart-4: 40 100% 50%;  /* An orange */
+    --chart-5: 300 100% 50%; /* A purple */
 
-    /* Simplified sidebar colors to match dark theme */
-    --sidebar-background: 257 33% 12%;
-    --sidebar-foreground: 257 100% 91%;
-    --sidebar-primary: 257 92% 76%;
-    --sidebar-primary-foreground: 257 33% 12%;
-    --sidebar-accent: 257 27% 20%;
-    --sidebar-accent-foreground: 257 100% 91%;
-    --sidebar-border: 257 25% 29%;
-    --sidebar-ring: 257 92% 76%;
+    --sidebar-background: 0 0% 10%; /* Slightly off-black for sidebar */
+    --sidebar-foreground: 0 0% 90%;
+    --sidebar-primary: 4 100% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent:  0 0% 17%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 0 0% 24%;
+    --sidebar-ring: 4 100% 60%;
   }
 
-  /* Remove .dark class specific overrides as we are dark by default */
+  .light {
+    /* Light Mode - Inspired by Apple Music Light Mode */
+    --background: 0 0% 100%; /* #FFFFFF */
+    --background-rgb: 255, 255, 255;
+    --foreground: 0 0% 0%; /* #000000 */
+    --foreground-rgb: 0, 0, 0;
+
+    --card: 0 0% 95%; /* #F2F2F7 - Input Backgrounds / Card Backgrounds */
+    --card-foreground: 0 0% 0%; /* #000000 */
+
+    --popover: 0 0% 95%; /* #F2F2F7 */
+    --popover-foreground: 0 0% 0%; /* #000000 */
+
+    --primary: 1 100% 59%; /* Apple Red Light: #FF3B30 */
+    --primary-foreground: 0 0% 100%; /* White text on red */
+
+    --secondary: 240 1% 26%; /* #3C3C43 (with 60% opacity on white = #3C3C4399, text color #3C3C43) - Secondary Text */
+    --secondary-foreground: 0 0% 100%; /* White text on secondary (if used as bg) */
+
+    --muted: 0 0% 90%; /* #E5E5EA Muted elements, subtle borders */
+    --muted-foreground: 240 1% 26%; /* #3C3C43 (opacity 60%) for muted text */
+
+    --accent: 1 100% 59%; /* Apple Red Light: #FF3B30 */
+    --accent-foreground: 0 0% 100%; /* White text on accent */
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 85%; /* #D9D9D9 for subtle borders */
+    --input: 0 0% 93%; /* #EDEDED slightly different from card for inputs if needed, or use card */
+    --ring: 1 100% 59%; /* Apple Red Light for focus rings */
+
+    /* Chart colors for light mode can be brighter */
+    --chart-1: 1 100% 59%;
+    --chart-2: 210 100% 50%;
+    --chart-3: 120 60% 45%;
+    --chart-4: 35 100% 55%;
+    --chart-5: 280 70% 55%;
+
+    --sidebar-background: 0 0% 97%;
+    --sidebar-foreground: 0 0% 10%;
+    --sidebar-primary: 1 100% 59%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 90%;
+    --sidebar-accent-foreground: 0 0% 0%;
+    --sidebar-border: 0 0% 85%;
+    --sidebar-ring: 1 100% 59%;
+  }
 }
 
 @layer base {
@@ -65,5 +113,74 @@ body {
   }
   body {
     @apply bg-background text-foreground;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
+}
+
+/* Specific styles for Apple-like appearance */
+.apple-input {
+  @apply bg-card border-border placeholder:text-muted-foreground/70 focus:border-primary focus:ring-1 focus:ring-primary;
+  border-width: 0.5px; /* Thinner borders like Apple */
+}
+
+.apple-button {
+  @apply bg-primary text-primary-foreground hover:bg-opacity-80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  transition: transform 0.1s ease-out, background-color 0.1s ease-out;
+}
+.apple-button:active {
+    transform: scale(0.97);
+}
+
+.apple-record-button {
+  @apply bg-red-600 hover:bg-red-700 text-white;
+  width: 56px; /* Example size */
+  height: 56px;
+  border-radius: 9999px; /* Circular */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+.apple-record-button.recording {
+  @apply bg-red-700; /* Darker when recording */
+}
+.apple-record-button .record-dot {
+  width: 20px;
+  height: 20px;
+  background-color: white;
+  border-radius: 4px; /* Rounded square, or circle if preferred */
+}
+.apple-record-button.recording .record-dot {
+  /* Could animate this dot if desired */
+}
+
+
+.apple-subtle-shadow {
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03), 0 1px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px 0 rgba(0, 0, 0, 0.02);
+}
+.dark .apple-subtle-shadow {
+  box-shadow: 0 1px 1px rgba(255,255,255,0.05), 0 2px 2px rgba(255,255,255,0.05), 0 4px 4px rgba(255,255,255,0.05), 0 8px 8px rgba(255,255,255,0.05);
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+/* Hide scrollbar for IE, Edge and Firefox */
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+/* Ensure cards have a bit more padding like Apple Music */
+.apple-card {
+    @apply bg-card rounded-xl shadow-md; /* Use existing --radius or a bit more */
+    padding: 1.25rem; /* 20px padding */
+}
+
+@media (max-width: 768px) {
+    .apple-card {
+        padding: 1rem; /* 16px padding on mobile */
+    }
 }

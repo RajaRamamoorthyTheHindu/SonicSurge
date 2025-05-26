@@ -1,15 +1,10 @@
 import type {Metadata} from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import { Inter } from 'next/font/google'; // Changed from Geist to Inter
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
+const inter = Inter({ // Initialize Inter
+  variable: '--font-inter',
   subsets: ['latin'],
 });
 
@@ -24,8 +19,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">{/* Apply dark class to html for default dark mode */}
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}>
+    <html lang="en" className="dark"> {/* Defaulting to dark theme as per original PRD */}
+      <body className={`${inter.variable} font-sans antialiased bg-background text-foreground`}> {/* Use inter variable and add font-sans for Tailwind to pick it up */}
         {children}
         <Toaster />
       </body>
