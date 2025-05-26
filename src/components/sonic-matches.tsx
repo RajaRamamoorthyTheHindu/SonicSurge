@@ -1,9 +1,13 @@
 
+'use client';
+
 import type { Song, InterpretMusicalIntentOutput } from '@/types';
-import { SongCard } from '@/components/song-card';
+import { SongRow } from '@/components/song-row'; // New component for table rows
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Info } from 'lucide-react'; // For "No results" message
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'; // ShadCN Table components
+import { Info } from 'lucide-react';
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"; // For responsive table
 
 interface SonicMatchesProps {
   aiInterpretation: InterpretMusicalIntentOutput | null;
@@ -15,34 +19,29 @@ export function SonicMatches({ aiInterpretation, songs }: SonicMatchesProps) {
     return null;
   }
 
-  const hasContent = songs.length > 0 || (aiInterpretation && 
+  const hasAiContent = aiInterpretation &&
     (aiInterpretation.moodDescriptors?.length > 0 ||
      aiInterpretation.instrumentTags?.length > 0 ||
      aiInterpretation.tempo ||
      aiInterpretation.genreAffinities?.length > 0 ||
      aiInterpretation.artistSimilarity?.length > 0 ||
      aiInterpretation.trackMetadata?.trackUrl
-    ));
+    );
 
-  if (!hasContent && !(songs.length === 0 && aiInterpretation)) { // Ensure we don't render an empty section unless it's a "no results" state
+  if (!hasAiContent && songs.length === 0) {
     return null;
   }
-  
+
+  const primaryMood = aiInterpretation?.moodDescriptors?.[0];
+
   return (
     <section id="sonic-matches" className="w-full">
       <div className="space-y-8 md:space-y-10">
         <h2 className="text-2xl md:text-3xl font-semibold text-center text-foreground">
           Your Sonic Matches
         </h2>
-        
-        {aiInterpretation && (
-          (aiInterpretation.moodDescriptors?.length > 0 ||
-           aiInterpretation.instrumentTags?.length > 0 ||
-           aiInterpretation.tempo ||
-           aiInterpretation.genreAffinities?.length > 0 ||
-           aiInterpretation.artistSimilarity?.length > 0 ||
-           aiInterpretation.trackMetadata?.trackUrl
-          ) && (
+
+        {hasAiContent && (
           <Card className="apple-card apple-subtle-shadow">
             <CardHeader className="pb-3 pt-1">
               <CardTitle className="text-lg md:text-xl font-semibold text-foreground">AI Interpretation</CardTitle>
@@ -65,7 +64,7 @@ export function SonicMatches({ aiInterpretation, songs }: SonicMatchesProps) {
                 </div>
               )}
               {aiInterpretation.tempo && (
-                <div><strong className="font-medium text-foreground/80 text-xs uppercase tracking-wider">Tempo:</strong> <Badge variant="secondary" className="bg-foreground/10 text-foreground/90 font-normal">{aiInterpretation.tempo}</Badge></div>
+                 <div><strong className="font-medium text-foreground/80 text-xs uppercase tracking-wider">Tempo:</strong> <Badge variant="secondary" className="bg-foreground/10 text-foreground/90 font-normal">{aiInterpretation.tempo}</Badge></div>
               )}
               {aiInterpretation.genreAffinities && aiInterpretation.genreAffinities.length > 0 && (
                 <div>
@@ -88,19 +87,31 @@ export function SonicMatches({ aiInterpretation, songs }: SonicMatchesProps) {
               )}
             </CardContent>
           </Card>
-          )
         )}
 
         {songs.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
-            {songs.map((song, index) => (
-              <div key={song.id} className="animate-slide-up" style={{ animationDelay: `${index * 100}ms`}}>
-                <SongCard song={song} />
-              </div>
-            ))}
-          </div>
+          <ScrollArea className="w-full whitespace-nowrap rounded-lg border bg-card text-card-foreground shadow-sm apple-subtle-shadow">
+            <Table className="min-w-full music-table">
+              <TableHeader>
+                <TableRow className="border-b-border/50">
+                  <TableHead className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[25%]">Track Name</TableHead>
+                  <TableHead className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[15%]">Mood</TableHead>
+                  <TableHead className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[20%]">Artist Name</TableHead>
+                  <TableHead className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[20%]">Album Name</TableHead>
+                  <TableHead className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[10%]">Cover Art</TableHead>
+                  <TableHead className="py-3 px-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[10%]">Spotify</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {songs.map((song, index) => (
+                  <SongRow key={song.id} song={song} mood={primaryMood} />
+                ))}
+              </TableBody>
+            </Table>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
         ) : (
-          aiInterpretation && ( 
+          aiInterpretation && ( // Only show "No matches" if there was an AI interpretation attempt
             <div className="text-center py-10 flex flex-col items-center space-y-3 bg-card rounded-xl apple-subtle-shadow p-6 md:p-8">
               <Info className="h-10 w-10 text-muted-foreground" />
               <p className="text-lg font-medium text-foreground">No matches for that vibe.</p>
