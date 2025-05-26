@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview Analyzes an audio snippet to identify the song and extract relevant metadata.
@@ -8,7 +9,7 @@
  */
 
 import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import {z}from 'genkit';
 
 const AnalyzeAudioSnippetInputSchema = z.object({
   audioDataUri: z
@@ -57,6 +58,16 @@ const analyzeAudioSnippetFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await analyzeAudioSnippetPrompt(input);
-    return output!;
+    if (!output) {
+        console.warn("AI prompt 'analyzeAudioSnippetPrompt' did not return a valid output structure for input:", input);
+        // Return a default or throw
+        return { 
+            songName: 'Unknown Song', 
+            artistName: 'Unknown Artist', 
+            albumName: undefined, 
+            confidence: 0 
+        };
+    }
+    return output;
   }
 );

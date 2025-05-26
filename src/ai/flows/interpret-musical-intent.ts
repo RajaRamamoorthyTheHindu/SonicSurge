@@ -119,26 +119,33 @@ const interpretMusicalIntentFlow = ai.defineFlow(
     outputSchema: InterpretMusicalIntentOutputSchema,
   },
   async input => {
-    // Basic validation for total seeds - though AI should handle this from prompt.
-    // This is more of a conceptual check for the prompt's effectiveness.
-    // The Spotify API itself will reject >5 seeds.
     const {output} = await interpretMusicalIntentPrompt(input);
 
-    if (output) {
-        const { seed_tracks, seed_artists, seed_genres } = output;
-        const totalSeeds = (seed_tracks?.length || 0) + (seed_artists?.length || 0) + (seed_genres?.length || 0);
-        if (totalSeeds > 5) {
-            console.warn("AI returned more than 5 seeds, this might be an issue for Spotify. Prompt may need refinement.", output);
-            // Potentially truncate seeds here if necessary, or let Spotify handle it.
-            // For now, we'll pass them as is.
-        }
-        if (totalSeeds === 0 && !output.fallbackSearchQuery) {
-            console.warn("AI returned no seeds and no fallback query. This might lead to no results.", output);
-            // Could force a fallback query here based on moodDescription if critical
-            // output.fallbackSearchQuery = `music for ${input.moodDescription}`;
-        }
+    if (!output) {
+        console.warn("AI prompt 'interpretMusicalIntentPrompt' did not return a valid output structure for input:", input);
+        // Return a default empty structure or a desperate fallback
+        return { 
+            seed_tracks: undefined, 
+            seed_artists: undefined, 
+            seed_genres: undefined, 
+            // Attempt a very generic fallback if moodDescription is available
+            fallbackSearchQuery: input.moodDescription ? `music for ${input.moodDescription}` : "popular music"
+        }; 
     }
-    return output!;
+    
+    const { seed_tracks, seed_artists, seed_genres } = output;
+    const totalSeeds = (seed_tracks?.length || 0) + (seed_artists?.length || 0) + (seed_genres?.length || 0);
+    
+    if (totalSeeds > 5) {
+        console.warn("AI returned more than 5 seeds, this might be an issue for Spotify. Prompt may need refinement.", output);
+        // Potentially truncate seeds here if necessary, or let Spotify handle it.
+    }
+    
+    if (totalSeeds === 0 && !output.fallbackSearchQuery) {
+        console.warn("AI returned no seeds and no fallback query. This might lead to no results. Forcing a fallback.", output);
+        // Force a fallback query here based on moodDescription if critical
+        output.fallbackSearchQuery = input.moodDescription ? `music for ${input.moodDescription}` : "popular music";
+    }
+    return output;
   }
 );
-

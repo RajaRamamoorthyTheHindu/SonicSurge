@@ -46,10 +46,10 @@ export default function Home() {
   const [showResults, setShowResults] = useState(false);
   const [currentOffset, setCurrentOffset] = useState(0);
   const [totalSongsAvailable, setTotalSongsAvailable] = useState(0);
-  const [audioDataUriForAI, setAudioDataUriForAI] = useState<string | null>(null);
+  // const [audioDataUriForAI, setAudioDataUriForAI] = useState<string | null>(null); // Removed, will use param directly
 
 
-  const handleSearchSubmit = async (formValuesFromForm: FindYourVibeFormValues, audioDataUri?: string | null) => {
+  const handleSearchSubmit = async (formValuesFromForm: FindYourVibeFormValues, audioDataUriFromForm?: string | null) => {
     setIsLoadingSearch(true);
     setRecommendedSongs([]);
     setCurrentOffset(0);
@@ -57,7 +57,7 @@ export default function Home() {
     setShowResults(false);
     setAiInterpretation(null);
     setCurrentFormValues(formValuesFromForm);
-    setAudioDataUriForAI(audioDataUri || null);
+    // setAudioDataUriForAI(audioDataUriFromForm || null); // No longer setting state here for immediate use
 
 
     let derivedMetadata: SpotifyTrackDetails | null = null;
@@ -70,7 +70,7 @@ export default function Home() {
             toast({
               title: 'Could Not Fetch Link Details',
               description: "We couldn't get all details for the Spotify link provided, but we'll still try to use it.",
-              variant: 'default', // Changed from destructive as it's a soft failure
+              variant: 'default',
             });
           }
         } catch (error) {
@@ -87,18 +87,20 @@ export default function Home() {
     }
 
     const aiInput: InterpretMusicalIntentInput = {
-      moodDescription: formValuesFromForm.moodDescription, // Already required by form
+      moodDescription: formValuesFromForm.moodDescription,
       songName: formValuesFromForm.songName,
       artistName: formValuesFromForm.artistName,
       instrumentTags: formValuesFromForm.instrumentTags,
       genre: formValuesFromForm.genre === 'no_preference_selected' ? undefined : formValuesFromForm.genre,
       songLink: formValuesFromForm.songLink || undefined,
       derivedTrackMetadata: derivedMetadata || undefined,
-      audioSnippet: audioDataUriForAI || undefined,
+      audioSnippet: audioDataUriFromForm || undefined, // Use the parameter directly
     };
     
     try {
+      console.log("Calling interpretMusicalIntent with input:", aiInput);
       const aiOutput = await interpretMusicalIntent(aiInput);
+      console.log("Received AI output:", aiOutput);
       setAiInterpretation(aiOutput);
 
       if (aiOutput && ( (aiOutput.seed_tracks && aiOutput.seed_tracks.length > 0) || 
@@ -143,12 +145,14 @@ export default function Home() {
     }
 
     try {
+      console.log("Calling fetchSpotifyTracksAction with AI output:", aiOutputToUse, "form values:", formValuesToUse, "offset:", offsetToLoad);
       const { songs: newSongs, total: totalFromServer } = await fetchSpotifyTracksAction(
         aiOutputToUse,
         formValuesToUse, 
         SONGS_PER_PAGE,
         offsetToLoad
       );
+      console.log("Received songs from action:", newSongs, "total:", totalFromServer);
 
       setRecommendedSongs(prev => isNewSearch ? newSongs : [...prev, ...newSongs]);
       setTotalSongsAvailable(totalFromServer); 
@@ -176,7 +180,9 @@ export default function Home() {
       if (!isNewSearch) {
         setIsLoadingMore(false);
       }
-      setShowResults(true);
+      // setShowResults(true); // This is already set inside try block, conditionally if needed.
+                           // Set true even on error for new search to clear loading state.
+      if (isNewSearch) setShowResults(true);
     }
   };
   
@@ -186,7 +192,6 @@ export default function Home() {
       return;
     }
     if (recommendedSongs.length >= totalSongsAvailable) {
-      // No toast here, button will be disabled by hasMoreSongs
       return;
     }
     loadSongs(aiInterpretation, currentFormValues, currentOffset, false);
