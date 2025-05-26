@@ -12,10 +12,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { interpretMusicalIntent, InterpretMusicalIntentInput } from '@/ai/flows/interpret-musical-intent';
+import type { InterpretMusicalIntentInput } from '@/ai/flows/interpret-musical-intent';
 import { analyzeAudioSnippet } from '@/ai/flows/analyze-audio-snippet';
-import { fetchSpotifyTracksAction } from '@/actions/fetch-spotify-tracks-action';
-import type { Song, InterpretMusicalIntentOutput as AIOutput, Genre } from '@/types';
+import type { Genre } from '@/types';
 import { Loader2, Mic, StopCircle, UploadCloud, Music2 } from 'lucide-react';
 
 const formSchema = z.object({
@@ -27,7 +26,7 @@ const formSchema = z.object({
   songLink: z.string().url({ message: 'Please enter a valid URL.' }).optional().or(z.literal('')),
 });
 
-type FormValues = z.infer<typeof formSchema>;
+export type FormValues = z.infer<typeof formSchema>;
 
 const genres: Genre[] = [
   { value: 'pop', label: 'Pop' },
@@ -46,13 +45,13 @@ const genres: Genre[] = [
 ];
 
 interface FindYourVibeProps {
-  onResultsFetched: (aiInterpretation: AIOutput | null, songs: Song[]) => void;
-  setIsLoadingGlobal: (loading: boolean) => void;
+  onSearchInitiated: (aiInput: InterpretMusicalIntentInput, formValues: FormValues) => Promise<void>;
+  isParentSearching: boolean;
 }
 
-export function FindYourVibe({ onResultsFetched, setIsLoadingGlobal }: FindYourVibeProps) {
+export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourVibeProps) {
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmittingForm, setIsSubmittingForm] = useState(false); // Manages Discover button's own loading state for AI interpretation
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessingSnippet, setIsProcessingSnippet] = useState(false);
   const [audioDataUri, setAudioDataUri] = useState<string | null>(null);
@@ -61,7 +60,7 @@ export function FindYourVibe({ onResultsFetched, setIsLoadingGlobal }: FindYourV
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
-  const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  // recordingIntervalRef useRef<NodeJS.Timeout | null>(null); // Not used, can remove
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -81,7 +80,7 @@ export function FindYourVibe({ onResultsFetched, setIsLoadingGlobal }: FindYourV
       setRecordingTime(0);
       interval = setInterval(() => {
         setRecordingTime(prev => {
-          if (prev >= 14) { // Stop at 14 to trigger stopRecording before it hits 15 exactly
+          if (prev >= 14) { 
             stopRecording();
             return 15;
           }
@@ -174,13 +173,11 @@ export function FindYourVibe({ onResultsFetched, setIsLoadingGlobal }: FindYourV
       toast({
         title: 'No Input Provided',
         description: 'Please provide some information to find your vibe.',
-        variant: 'destructive',
+        variant: 'default', // Changed from destructive to be less alarming
       });
       return;
     }
-    setIsLoading(true);
-    setIsLoadingGlobal(true);
-    onResultsFetched(null, []);
+    setIsSubmittingForm(true);
 
     const aiInput: InterpretMusicalIntentInput = {
       songName: values.songName || '',
@@ -193,46 +190,24 @@ export function FindYourVibe({ onResultsFetched, setIsLoadingGlobal }: FindYourV
     };
 
     try {
-      const aiInterpretation = await interpretMusicalIntent(aiInput);
-      let songs: Song[] = [];
-      if (aiInterpretation) {
-        songs = await fetchSpotifyTracksAction(aiInterpretation, { songName: values.songName, artistName: values.artistName });
-        if (songs.length === 0 && (values.songName || values.artistName || values.genre || values.moodDescription)) {
-           toast({
-            title: 'No matches found',
-            description: "Couldn't find specific matches based on your input. Try broadening your search.",
-            variant: 'default', // Changed from destructive to default for less alarming message
-          });
-        }
-      } else {
-         toast({
-            title: 'Could not interpret intent',
-            description: "The AI could not fully interpret your request. Please try rephrasing.",
-            variant: 'destructive',
-          });
-      }
-      onResultsFetched(aiInterpretation, songs);
-    } catch (error: any) {
-      console.error('Error in submission process:', error);
-      toast({
-        title: 'Error Finding Songs',
-        description: error.message || 'Could not fetch recommendations. Please try again.',
-        variant: 'destructive',
-      });
-      onResultsFetched(null, []);
+      await onSearchInitiated(aiInput, values);
+    } catch (error) {
+       // Errors are handled by the parent (Home component)
+       // This component's finally block will still run.
     } finally {
-      setIsLoading(false);
-      setIsLoadingGlobal(false);
+      setIsSubmittingForm(false);
     }
   }
+  
+  const discoverButtonDisabled = isSubmittingForm || isParentSearching || isRecording || isProcessingSnippet;
 
   return (
     <section className="w-full">
       <Card className="max-w-2xl mx-auto apple-card apple-subtle-shadow">
-        <CardHeader className="pb-4 pt-2"> {/* Reduced padding for header to be more compact */}
+        <CardHeader className="pb-4 pt-2">
           <CardTitle className="text-2xl font-semibold text-center text-foreground">Find Your Vibe</CardTitle>
         </CardHeader>
-        <CardContent className="pt-4"> {/* Adjusted padding */}
+        <CardContent className="pt-4">
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-5">
               <div>
@@ -292,7 +267,7 @@ export function FindYourVibe({ onResultsFetched, setIsLoadingGlobal }: FindYourV
                 <button
                   type="button"
                   onClick={handleRecordSnippet}
-                  disabled={isProcessingSnippet || isLoading}
+                  disabled={isProcessingSnippet || isSubmittingForm || isParentSearching}
                   className={`apple-record-button ${isRecording ? 'recording animate-pulse' : ''} focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background transition-all duration-150 ease-in-out`}
                   aria-label={isRecording ? "Stop recording" : "Start recording"}
                 >
@@ -316,9 +291,9 @@ export function FindYourVibe({ onResultsFetched, setIsLoadingGlobal }: FindYourV
               </div>
             </div>
 
-            <Button type="submit" disabled={isLoading || isRecording || isProcessingSnippet} className="w-full apple-button text-base py-3 font-semibold">
-              {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Music2 className="mr-2 h-5 w-5" />}
-              {isLoading ? 'Discovering...' : 'Discover'}
+            <Button type="submit" disabled={discoverButtonDisabled} className="w-full apple-button text-base py-3 font-semibold">
+              {(isSubmittingForm || isParentSearching) ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Music2 className="mr-2 h-5 w-5" />}
+              {(isSubmittingForm || isParentSearching) ? 'Discovering...' : 'Discover'}
             </Button>
           </form>
         </CardContent>

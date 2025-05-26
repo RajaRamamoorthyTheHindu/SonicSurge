@@ -39,8 +39,6 @@ async function getClientCredentialsToken(): Promise<string> {
 
   const tokenData = await response.json();
   accessToken = tokenData.access_token;
-  // Spotify returns expires_in in seconds. Convert to ms and set future expiry time.
-  // Subtract a small buffer (e.g., 60 seconds) to be safe.
   tokenExpiryTime = Date.now() + (tokenData.expires_in - 60) * 1000;
   
   return accessToken!;
@@ -75,21 +73,25 @@ interface SpotifyTrackItem {
 interface SpotifySearchResponse {
   tracks: {
     items: SpotifyTrackItem[];
+    total: number;
+    limit: number;
+    offset: number;
   };
 }
 
 export async function searchSpotifyTracksService(
   queryString: string,
-  limit: number = 5
-): Promise<Song[]> {
+  limit: number = 5,
+  offset: number = 0
+): Promise<{ songs: Song[]; total: number }> {
   if (!queryString.trim()) {
     console.warn("Spotify search query is empty. Returning no results.");
-    return [];
+    return { songs: [], total: 0 };
   }
 
   const token = await getClientCredentialsToken();
 
-  const response = await fetch(`${SPOTIFY_API_BASE}/search?q=${encodeURIComponent(queryString)}&type=track&limit=${limit}`, {
+  const response = await fetch(`${SPOTIFY_API_BASE}/search?q=${encodeURIComponent(queryString)}&type=track&limit=${limit}&offset=${offset}`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -103,7 +105,7 @@ export async function searchSpotifyTracksService(
 
   const data: SpotifySearchResponse = await response.json();
 
-  return data.tracks.items.map(item => {
+  const songs = data.tracks.items.map(item => {
     const albumArt = item.album.images[0]?.url;
     const artistName = item.artists[0]?.name || 'Unknown Artist';
     const albumName = item.album.name || 'Unknown Album';
@@ -125,9 +127,9 @@ export async function searchSpotifyTracksService(
       platformLinks: {
         spotify: item.external_urls.spotify,
       },
-      // aiHint is for placeholder images. Max 2 words.
       aiHint: albumArt ? undefined : (hint.split(' ').slice(0,2).join(' ') || 'music album'),
-      // previewUrl: item.preview_url, // Optional: if you want to add preview functionality later
     };
   });
+
+  return { songs, total: data.tracks.total };
 }
