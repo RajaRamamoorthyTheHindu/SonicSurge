@@ -4,12 +4,12 @@
 import type { Song } from '@/types'; 
 import type { InterpretMusicalIntentOutput as AIOutput } from '@/ai/flows/interpret-musical-intent';
 import { SongRow } from '@/components/song-row';
-import { SongListItemMobile } from '@/components/song-list-item-mobile'; // New import
+import { SongListItemMobile } from '@/components/song-list-item-mobile';
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Info, Loader2, ChevronDown } from 'lucide-react'; 
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { useMediaQuery } from '@/hooks/use-media-query'; // New import
+import { useMediaQuery } from '@/hooks/use-media-query';
 
 interface SonicMatchesProps {
   aiInterpretation: AIOutput | null;
@@ -22,7 +22,7 @@ interface SonicMatchesProps {
 
 export function SonicMatches({ aiInterpretation, songs, onLoadMore, isLoadingMore, hasMore, originalMoodDescription }: SonicMatchesProps) {
   const wasSearchAttempted = aiInterpretation || originalMoodDescription;
-  const isDesktop = useMediaQuery('(min-width: 768px)'); // md breakpoint in Tailwind
+  const isDesktop = useMediaQuery('(min-width: 768px)') // md breakpoint in Tailwind
 
   if (!wasSearchAttempted && songs.length === 0) {
     return null; 
@@ -47,7 +47,7 @@ export function SonicMatches({ aiInterpretation, songs, onLoadMore, isLoadingMor
                       <TableHead className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[25%]">Artist Name</TableHead>
                       <TableHead className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[25%]">Album Name</TableHead>
                       <TableHead className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[10%]">Cover Art</TableHead>
-                      <TableHead className="py-3 px-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[10%]">Spotify</TableHead>
+                      <TableHead className="py-3 px-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[10%]">Listen</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -100,3 +100,4 @@ export function SonicMatches({ aiInterpretation, songs, onLoadMore, isLoadingMor
     </section>
   );
 }
+
