@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Loader2, Search, ChevronDown, ChevronUp, Settings2, Edit3, Music4 } from 'lucide-react';
+import { Loader2, Search, ChevronDown, ChevronUp, Settings2, Music4 } from 'lucide-react';
 import type { ProfileAnalysisOutput } from '@/types';
 import { MoodComposer } from '@/components/mood-composer';
 import type { MoodInput } from '@/lib/music/buildRecommendationParams';
@@ -62,40 +62,55 @@ export function FindYourVibe({
   });
   
   const handleMoodComposerChange = useCallback((params: MoodInput | null) => {
+    console.log("FindYourVibe: MoodComposer params changed:", params);
     setMoodComposerParams(params);
   }, []);
 
   async function onSubmit(values: FormValues) {
+    console.log("FindYourVibe onSubmit - START. Values:", values, "ActiveTab:", activeTab, "MoodComposerParams:", moodComposerParams);
     setIsSubmittingForm(true);
-    let searchType: 'mood' | 'profile' | 'structured_mood' = activeTab;
+    let searchType: 'mood' | 'profile' | 'structured_mood' = activeTab as 'mood' | 'profile';
 
     const submissionValues: FormValues = { ...values, moodComposerParams };
 
     if (activeTab === 'mood') {
-      if (moodComposerParams && moodComposerParams.selectedMoodName) {
+      const hasMoodComposerInteraction = moodComposerParams && (
+        moodComposerParams.selectedMoodName ||
+        moodComposerParams.energy !== undefined ||
+        moodComposerParams.valence !== undefined ||
+        moodComposerParams.tempo !== undefined ||
+        (moodComposerParams.languages && moodComposerParams.languages.length > 0)
+      );
+
+      if (hasMoodComposerInteraction) {
         searchType = 'structured_mood';
       } else if (values.moodDescription && values.moodDescription.trim() !== '') {
         searchType = 'mood';
       } else {
-        form.setError("moodDescription", { type: "manual", message: "Please select a mood profile or provide a mood description." });
+        form.setError("moodDescription", { type: "manual", message: "Please select a mood profile, adjust mood controls, or provide a mood description using the advanced free-text option." });
         setIsSubmittingForm(false);
+        console.log("FindYourVibe onSubmit - FORM ERROR SET: No valid mood input.");
         return;
       }
     } else if (activeTab === 'profile') {
       if (!values.socialProfileUrl || values.socialProfileUrl.trim() === '') {
         form.setError("socialProfileUrl", {type: "manual", message: "Social profile URL is required for this search type."});
         setIsSubmittingForm(false);
+        console.log("FindYourVibe onSubmit - FORM ERROR SET: No social profile URL.");
         return;
       }
       searchType = 'profile';
     }
 
+    console.log("FindYourVibe onSubmit - Before calling onSearchInitiated. SearchType:", searchType, "SubmissionValues:", JSON.stringify(submissionValues));
     try {
       await onSearchInitiated(submissionValues, searchType);
-    } catch {
-      // Errors are handled by the parent in page.tsx
+      console.log("FindYourVibe onSubmit - onSearchInitiated completed.");
+    } catch (e) { 
+      console.error("FindYourVibe onSubmit - Error during onSearchInitiated call:", e);
     } finally {
       setIsSubmittingForm(false);
+      console.log("FindYourVibe onSubmit - FINALLY block, isSubmittingForm set to false.");
     }
   }
 
@@ -111,7 +126,14 @@ export function FindYourVibe({
   const isDiscoverButtonDisabled = () => {
     if (isSubmittingForm || isParentSearching) return true;
     if (activeTab === 'mood') {
-      return !( (moodComposerParams && moodComposerParams.selectedMoodName) || (form.getValues('moodDescription') || '').trim() !== '' );
+      const hasMoodComposerInteraction = moodComposerParams && (
+        moodComposerParams.selectedMoodName ||
+        moodComposerParams.energy !== undefined ||
+        moodComposerParams.valence !== undefined ||
+        moodComposerParams.tempo !== undefined ||
+        (moodComposerParams.languages && moodComposerParams.languages.length > 0)
+      );
+      return !(hasMoodComposerInteraction || (form.getValues('moodDescription') || '').trim() !== '');
     }
     if (activeTab === 'profile') {
       return !(form.getValues('socialProfileUrl') || '').trim();
@@ -119,7 +141,6 @@ export function FindYourVibe({
     return true;
   };
 
-  // Ensure all JavaScript logic above is correctly terminated before returning JSX.
   return (
     <section className="w-full">
       <Card className="max-w-2xl mx-auto form-container-card subtle-shadow">
@@ -145,7 +166,7 @@ export function FindYourVibe({
                     </AccordionTrigger>
                     <AccordionContent className="pt-4">
                       <Label htmlFor="moodDescription" className="form-label">
-                        Describe Your Vibe <span className="form-optional-label">(if not using profiles above)</span>
+                        Describe Your Vibe <span className="form-optional-label">(if not using mood composer above)</span>
                       </Label>
                       <Textarea
                         id="moodDescription"

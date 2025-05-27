@@ -55,7 +55,7 @@ async function getClientCredentialsToken(): Promise<string> {
 
   const tokenData = await response.json();
   accessToken = tokenData.access_token;
-  tokenExpiryTime = Date.now() + (tokenData.expires_in - 60) * 1000;
+  tokenExpiryTime = Date.now() + (tokenData.expires_in - 60) * 1000; // Subtract 60 seconds for buffer
   
   return accessToken!;
 }
@@ -172,16 +172,21 @@ export async function getSpotifyRecommendationsService(
     queryParams.append('seed_tracks', params.seed_tracks.slice(0, 5).join(','));
   }
 
-  // Calculate total seeds from the actual queryParams being sent
   const currentSeedArtists = queryParams.get('seed_artists')?.split(',').filter(s => s && s.trim() !== '') || [];
   const currentSeedGenres = queryParams.get('seed_genres')?.split(',').filter(g => g && g.trim() !== '') || [];
   const currentSeedTracks = queryParams.get('seed_tracks')?.split(',').filter(t => t && t.trim() !== '') || [];
   
   const totalSeeds = currentSeedArtists.length + currentSeedGenres.length + currentSeedTracks.length;
-  
-  if (totalSeeds === 0 && !params.fallbackSearchQuery) {
-     console.warn("No seeds provided for Spotify recommendations, and no fallback query. Spotify may return an error or empty results.");
+  const hasTargets = Object.keys(params).some(k => k.startsWith('target_') && params[k as keyof InterpretMusicalIntentOutput] !== undefined);
+
+  if (totalSeeds === 0 && !hasTargets) {
+    console.warn("No seeds and no target parameters provided for Spotify recommendations. Spotify will likely return an error. Returning empty results.");
+    return { songs: [], total: 0 }; 
   }
+  if (totalSeeds === 0 && hasTargets) {
+    console.warn("Spotify recommendations called with target parameters but no seeds. Results may be broad or an error might occur from Spotify.");
+  }
+
 
   if (params.target_danceability) queryParams.append('target_danceability', params.target_danceability.toString());
   if (params.target_energy) queryParams.append('target_energy', params.target_energy.toString());
@@ -206,10 +211,7 @@ export async function getSpotifyRecommendationsService(
   const data: SpotifyRecommendationsResponse = await response.json();
   const songs = data.tracks.map(mapSpotifyItemToSong);
   
-  // Spotify recommendations endpoint doesn't provide a "total". 
-  // If we get `limit` songs, assume there might be more for pagination purposes on the client.
-  // A more robust "total" would require a different approach if Spotify doesn't offer it for recommendations.
-  const total = songs.length === limit ? songs.length + limit : songs.length; 
+  const total = songs.length === limit && songs.length > 0 ? songs.length + limit : songs.length; 
 
   return { songs, total };
 }
@@ -263,11 +265,9 @@ export async function searchSpotifyArtistsService(
     return [];
   }
 
-  // Normalize artistName for consistent caching and searching
   const normalizedArtistName = artistName.trim().toLowerCase().replace(/\s\s+/g, ' ');
   const now = Date.now();
 
-  // Check cache
   const cachedEntry = artistCache.get(normalizedArtistName);
   if (cachedEntry && (now - cachedEntry.timestamp < ARTIST_CACHE_DURATION)) {
     console.log(`Returning cached Spotify artist data for: "${normalizedArtistName}"`);
@@ -277,7 +277,7 @@ export async function searchSpotifyArtistsService(
   console.log(`Searching Spotify for artist (normalized): "${normalizedArtistName}" (original: "${artistName}")`);
   const token = await getClientCredentialsToken();
   const queryParams = new URLSearchParams({
-    q: normalizedArtistName, // Use normalized name for search
+    q: normalizedArtistName, 
     type: 'artist',
     limit: limit.toString(),
   });
@@ -291,13 +291,11 @@ export async function searchSpotifyArtistsService(
   if (!response.ok) {
     const errorBody = await response.text();
     console.error('Spotify API Artist Search Error:', response.status, errorBody);
-    // Do not cache on error, let it retry next time
     return []; 
   }
   const data: SpotifySearchResponse<SpotifyArtist> = await response.json();
   const artists = data.artists?.items || [];
 
-  // Store in cache
   artistCache.set(normalizedArtistName, { artists, timestamp: now });
   console.log(`Fetched and cached ${artists.length} artists for: "${normalizedArtistName}"`);
   
@@ -317,7 +315,6 @@ export async function searchSpotifyTrackService(
   const token = await getClientCredentialsToken();
   let query = `track:${trackName.trim()}`;
   if (artistName && artistName.trim()) {
-    // Normalize artistName if provided for the query
     const normalizedArtistName = artistName.trim().toLowerCase().replace(/\s\s+/g, ' ');
     query += ` artist:${normalizedArtistName}`;
   }
