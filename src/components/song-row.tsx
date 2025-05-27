@@ -8,8 +8,8 @@ import { TableCell, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
-import { PlayCircle, StopCircle, Youtube } from 'lucide-react';
-import { searchYouTubeVideo } from '@/services/youtube-service'; // New import
+import { PlayCircle, StopCircle, Youtube, Loader2 } from 'lucide-react'; // Added Loader2
+import { searchYouTubeVideo } from '@/services/youtube-service'; 
 
 interface SongRowProps {
   song: Song;
@@ -57,10 +57,7 @@ export function SongRow({ song }: SongRowProps) {
   };
 
   // Determine the number of columns for the player row to span
-  // Track Name, Artist Name, Album Name, Cover Art, Listen Buttons (Spotify, YouTube) = 6 columns
-  // The original number was 5 (Track, Artist, Album, Cover, Spotify Listen Button)
-  // Now with YouTube, it should span 5 if we put buttons in one cell or 6 if they are separate.
-  // Let's keep buttons in one cell for now, so 5 columns
+  // Track Name, Artist Name, Album Name, Cover Art, Listen Buttons (Spotify, YouTube) = 5 columns
   const numberOfPlayerColumns = 5; // Track, Artist, Album, Cover, Actions
 
   return (
