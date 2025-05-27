@@ -15,7 +15,7 @@ import { Loader2, Search, ChevronDown, ChevronUp } from 'lucide-react';
 const formSchema = z.object({
   moodDescription: z.string().min(1, { message: 'Please describe the mood or vibe.' }),
   songName: z.string().optional(),
-  artistName: z.string().optional(),
+  // artistName: z.string().optional(), // Removed
   instrumentTags: z.string().optional(),
 });
 
@@ -35,7 +35,7 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
     defaultValues: {
       moodDescription: '',
       songName: '',
-      artistName: '',
+      // artistName: '', // Removed
       instrumentTags: '',
     },
   });
@@ -43,7 +43,6 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
   async function onSubmit(values: FormValues) {
     setIsSubmittingForm(true);
     try {
-      // The audioDataUri is no longer part of this simplified form
       await onSearchInitiated(values);
     } catch {
        // Errors are handled by the parent in page.tsx
@@ -96,15 +95,10 @@ export function FindYourVibe({ onSearchInitiated, isParentSearching }: FindYourV
                   </Label>
                   <Input id="songName" placeholder="e.g., Levitating" {...form.register('songName')} className="form-input-field" />
                 </div>
-
-                <div className="form-field-spacing md:col-span-1">
-                  <Label htmlFor="artistName" className="form-label">
-                    Artist Name <span className="form-optional-label">(optional)</span>
-                  </Label>
-                  <Input id="artistName" placeholder="e.g. Billie Eilish" {...form.register('artistName')} className="form-input-field" />
-                </div>
                 
-                <div className="form-field-spacing md:col-span-2"> {/* Changed to col-span-2 to take full width */}
+                {/* Artist Name field removed */}
+                
+                <div className="form-field-spacing md:col-span-2"> {/* Takes full width in the grid row after Song Name or starts a new row if Song Name is not col-span-2 */}
                   <Label htmlFor="instrumentTags" className="form-label">
                     Key Instruments <span className="form-optional-label">(optional)</span>
                   </Label>

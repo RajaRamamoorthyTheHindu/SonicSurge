@@ -29,7 +29,7 @@ export default function Home() {
   const [totalSongsAvailable, setTotalSongsAvailable] = useState(0);
 
 
-  const handleSearchSubmit = async (formValuesFromForm: FindYourVibeFormValues, audioDataUriFromForm?: string) => {
+  const handleSearchSubmit = async (formValuesFromForm: FindYourVibeFormValues, _audioDataUriFromForm?: string) => { // audioDataUriFromForm not used
     setIsLoadingSearch(true);
     setRecommendedSongs([]);
     setCurrentOffset(0);
@@ -41,9 +41,8 @@ export default function Home() {
     const aiInput: InterpretMusicalIntentInput = {
       moodDescription: formValuesFromForm.moodDescription,
       songName: formValuesFromForm.songName,
-      artistName: formValuesFromForm.artistName,
+      // artistName: formValuesFromForm.artistName, // Removed
       instrumentTags: formValuesFromForm.instrumentTags,
-      // audioSnippet: audioDataUriFromForm // This line was for audio input, removed as per user request
     };
     
     console.log("Calling interpretMusicalIntent with input:", aiInput);
