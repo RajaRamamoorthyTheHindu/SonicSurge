@@ -4,11 +4,9 @@
 import type { Song } from '@/types'; 
 import type { InterpretMusicalIntentOutput as AIOutput } from '@/ai/flows/interpret-musical-intent';
 import { SongRow } from '@/components/song-row';
-// import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // No longer needed for AI params card
-// import { Badge } from '@/components/ui/badge'; // No longer needed for AI params card
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Info, Loader2, ChevronDown } from 'lucide-react'; // Removed unused icons like Search, Music, ListFilter, Disc3
+import { Info, Loader2, ChevronDown } from 'lucide-react'; 
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
 interface SonicMatchesProps {
@@ -20,32 +18,11 @@ interface SonicMatchesProps {
   originalMoodDescription?: string; 
 }
 
-// DetailItem component is no longer needed as the card displaying these details is being hidden.
-// const DetailItem = ({ label, value, icon }: { label: string; value?: string | number | string[]; icon?: React.ReactNode }) => {
-//   if (value === undefined || value === null || (Array.isArray(value) && value.length === 0) || String(value).trim() === '') return null;
-//   return (
-//     <div className="flex items-start">
-//       {icon && <div className="mr-2 mt-0.5 text-primary shrink-0">{icon}</div>}
-//       <div>
-//         <h3 className="font-medium text-foreground/80 text-xs uppercase tracking-wider">{label}:</h3>
-//         {Array.isArray(value) ? (
-//           <div className="flex flex-wrap gap-2 mt-1">
-//             {value.map(item => <Badge key={item} variant="secondary" className="bg-foreground/10 text-foreground/90 font-normal">{item}</Badge>)}
-//           </div>
-//         ) : (
-//           <Badge variant="secondary" className="bg-foreground/10 text-foreground/90 font-normal mt-1 whitespace-normal text-left break-words">{String(value)}</Badge>
-//         )}
-//       </div>
-//     </div>
-//   );
-// };
-
 export function SonicMatches({ aiInterpretation, songs, onLoadMore, isLoadingMore, hasMore, originalMoodDescription }: SonicMatchesProps) {
-  // We still need aiInterpretation to determine if we should show "No matches" or if there was a search attempt.
   const wasSearchAttempted = aiInterpretation || originalMoodDescription;
 
   if (!wasSearchAttempted && songs.length === 0) {
-    return null; // Don't show anything if no search has been made and no songs are present
+    return null; 
   }
 
   return (
@@ -55,11 +32,9 @@ export function SonicMatches({ aiInterpretation, songs, onLoadMore, isLoadingMor
           Your Sonic Matches
         </h2>
 
-        {/* The AI Recommendation Parameters card has been removed as per request */}
-
         {songs.length > 0 ? (
           <>
-            <ScrollArea className="w-full whitespace-nowrap rounded-lg border bg-card text-card-foreground shadow-sm subtle-shadow">
+            <ScrollArea className="w-full rounded-lg border bg-card text-card-foreground shadow-sm subtle-shadow"> {/* Removed whitespace-nowrap */}
               <Table className="min-w-full music-table">
                 <TableHeader>
                   <TableRow className="border-b-border/50">
