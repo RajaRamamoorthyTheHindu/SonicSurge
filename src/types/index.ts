@@ -1,6 +1,7 @@
 
 import type { InterpretMusicalIntentOutput as GenAiInterpretOutput, InterpretMusicalIntentInput as GenAiInterpretInput } from '@/ai/flows/interpret-musical-intent';
-// export type { SpotifyTrackDetails } from '@/services/spotify-service'; // No longer directly exporting this as it's not used in page/components after link parsing removal
+import type { AnalyzeSocialProfileOutput as GenAIProfileOutput, AnalyzeSocialProfileInput as GenAIProfileInput } from '@/ai/flows/analyze-social-profile';
+import type { InterpretProfileForMusicOutput as GenAIProfileInterpretOutput, InterpretProfileForMusicInput as GenAIProfileInterpretInput } from '@/ai/flows/interpret-profile-for-music';
 
 
 export interface Song {
@@ -17,11 +18,14 @@ export interface Song {
   aiHint?: string;
 }
 
+// AI Flow Types
 export type InterpretMusicalIntentOutput = GenAiInterpretOutput;
 export type InterpretMusicalIntentInput = GenAiInterpretInput;
 
-// Genre type is no longer needed as the Genre field was removed from the form
-// export interface Genre {
-//   value: string;
-//   label: string;
-// }
+export type ProfileAnalysisOutput = GenAIProfileOutput;
+export type ProfileAnalysisInput = GenAIProfileInput;
+
+export type InterpretProfileForMusicOutput = GenAIProfileInterpretOutput; // This is often same as InterpretMusicalIntentOutput
+export type InterpretProfileForMusicInput = GenAIProfileInterpretInput;
+
+    

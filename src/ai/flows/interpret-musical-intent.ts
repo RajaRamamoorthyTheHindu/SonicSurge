@@ -3,8 +3,8 @@
 'use server';
 
 /**
- * @fileOverview This file defines a Genkit flow to interpret user musical intent.
- * It takes user's mood, and other optional preferences (song name, instrument tags).
+ * @fileOverview This file defines a Genkit flow to interpret user musical intent,
+ * primarily from a free-text mood description and optional song/instrument filters.
  * It uses tools to resolve song names to Spotify IDs and validate genres against Spotify's available list.
  * It translates these into structured parameters for Spotify's recommendations endpoint or a fallback search query.
  *
@@ -19,7 +19,7 @@ import {z} from 'genkit';
 import { 
   getAvailableGenreSeeds, 
   searchSpotifyTrackService 
-} from '@/services/spotify-service'; // Removed searchSpotifyArtistsService
+} from '@/services/spotify-service';
 
 // +---------------------+
 // |   INPUT SCHEMA      |
@@ -27,7 +27,6 @@ import {
 const InterpretMusicalIntentInputSchema = z.object({
   moodDescription: z.string().min(1, { message: 'Please describe the mood or vibe.' }),
   songName: z.string().optional().describe('The name of a song the user likes.'),
-  // artistName: z.string().optional().describe('The name of an artist the user likes.'), // Removed
   instrumentTags: z.string().optional().describe('Comma-separated list of key instruments (e.g., guitar, piano, saxophone).'),
 });
 export type InterpretMusicalIntentInput = z.infer<typeof InterpretMusicalIntentInputSchema>;
@@ -35,13 +34,14 @@ export type InterpretMusicalIntentInput = z.infer<typeof InterpretMusicalIntentI
 // +---------------------+
 // |   OUTPUT SCHEMA     |
 // +---------------------+
+// This schema is also used by interpret-profile-for-music.ts
 const InterpretMusicalIntentOutputSchema = z.object({
   seed_tracks: z.array(z.string()).max(5).optional().describe('Up to 5 Spotify track IDs to use as seeds for recommendations. Example: ["3n3Ppam7vgaVa1iaRUc9Lp"]'),
   seed_artists: z.array(z.string()).max(5).optional().describe('Up to 5 Spotify artist IDs to use as seeds. Example: ["3TVXtAsR1Inumwj472S9r4"]'),
   seed_genres: z.array(z.string()).max(5).optional().describe('Up to 5 *valid Spotify genre strings* to use as seeds. Example: ["pop", "nu-disco", "acoustic"]. Must be chosen from the available Spotify genre seeds. Do NOT use instrument names as genres.'),
   target_energy: z.number().min(0).max(1).optional().describe('Target energy level (0.0 to 1.0).'),
   target_danceability: z.number().min(0).max(1).optional().describe('Target danceability level (0.0 to 1.0).'),
-  target_tempo: z.number().optional().describe('Target tempo in BPM (e.g., 120).'),
+  target_tempo: z.number().min(40).max(240).optional().describe('Target tempo in BPM (e.g., 120).'),
   target_valence: z.number().min(0).max(1).optional().describe('Target valence (musical positiveness, 0.0 to 1.0).'),
   target_instrumentalness: z.number().min(0).max(1).optional().describe('Target instrumentalness level (0.0 to 1.0, where 1.0 means no vocals). Higher values for instrumental music.'),
   fallbackSearchQuery: z.string().optional().describe("A general search query string for Spotify if direct recommendation parameters cannot be formed. Example: 'upbeat electronic music'")
@@ -70,16 +70,12 @@ const getValidSpotifyGenresTool = ai.defineTool(
   }
 );
 
-// getSpotifyArtistIdTool removed as artistName input is removed.
-// If songName implies an artist, the track search might return artist info that the AI can use.
-
 const getSpotifyTrackIdTool = ai.defineTool(
   {
     name: 'getSpotifyTrackIdTool',
     description: 'Searches Spotify for a track by name and returns its Spotify Track ID and primary Artist ID if found.',
     inputSchema: z.object({ 
       trackName: z.string().describe("The name of the track to search for."),
-      // artistName: z.string().optional().describe("Optional: The name of the artist to refine the search.") // artistName no longer passed here
     }),
     outputSchema: z.object({
         trackId: z.string().nullable().describe("The Spotify Track ID, or null if not found."),
@@ -88,21 +84,17 @@ const getSpotifyTrackIdTool = ai.defineTool(
   },
   async ({ trackName }) => {
     try {
-      // Artist name is no longer passed from the form, so we only search by trackName.
-      // The service searchSpotifyTrackService might need to be updated if it strictly expects an artistName,
-      // or we assume it can handle artistName being undefined.
-      // For now, we pass undefined for artistName.
       const tracks = await searchSpotifyTrackService(trackName, undefined, 1);
       if (tracks[0]) {
         return {
           trackId: tracks[0].id,
-          artistId: tracks[0].artists[0]?.id || null, // Get primary artist ID
+          artistId: tracks[0].artists[0]?.id || null,
         };
       }
       return null;
     } catch (error) {
       console.error("Error in getSpotifyTrackIdTool:", error);
-      return null; // Return null on error
+      return null;
     }
   }
 );
@@ -113,10 +105,10 @@ const getSpotifyTrackIdTool = ai.defineTool(
 // +---------------------+
 
 const interpretMusicalIntentPrompt = ai.definePrompt({
-  name: 'interpretMusicalIntentPrompt',
+  name: 'interpretMusicalIntentPrompt', // Keep name distinct if you have multiple similar prompts
   input: {schema: InterpretMusicalIntentInputSchema},
   output: {schema: InterpretMusicalIntentOutputSchema},
-  tools: [getValidSpotifyGenresTool, getSpotifyTrackIdTool], // Removed getSpotifyArtistIdTool
+  tools: [getValidSpotifyGenresTool, getSpotifyTrackIdTool],
   prompt: `You are a sophisticated music recommendation engine. Your primary goal is to translate the user's preferences into a structured set of parameters for Spotify's recommendations endpoint.
 
 User's Core Vibe Description: "{{{moodDescription}}}"
@@ -141,7 +133,6 @@ Detailed Instructions:
     *   If the tool returns a valid object with a \`trackId\`, include this \`trackId\` in \`seed_tracks\`.
     *   If the tool also returns a valid \`artistId\` from that same track, you MAY include this \`artistId\` in \`seed_artists\`.
     *   If the tool returns null or no IDs, do not include anything for that song in \`seed_tracks\` or \`seed_artists\`.
-    *   If \`instrumentTags\` strongly suggest a specific, well-known instrumental track, you *may* attempt to find its ID and artist ID using \`getSpotifyTrackIdTool\`.
 
 2.  **Seed Genres (\`seed_genres\`)**:
     *   First, **you MUST call \`getValidSpotifyGenresTool()\`** to obtain the list of all valid Spotify genre seeds. This list is the ONLY source for valid genres.
@@ -176,12 +167,11 @@ const interpretMusicalIntentFlow = ai.defineFlow(
     outputSchema: InterpretMusicalIntentOutputSchema,
   },
   async (input) => {
-    console.log("interpretMusicalIntentFlow input:", input);
+    console.log("interpretMusicalIntentFlow (free-text mood) input:", input);
     const {output} = await interpretMusicalIntentPrompt(input);
 
     if (!output) {
         console.warn("AI prompt 'interpretMusicalIntentPrompt' did not return a valid output structure for input:", input);
-        // Attempt to create a very basic fallback if AI output is completely missing
         return {
             seed_tracks: undefined,
             seed_artists: undefined,
@@ -195,23 +185,24 @@ const interpretMusicalIntentFlow = ai.defineFlow(
     
     if (totalSeeds > 5) {
         console.warn("AI returned more than 5 seeds, this might be an issue for Spotify. Prompt may need refinement.", output);
-        // Potentially truncate seeds here if necessary, or rely on Spotify to handle it / error.
-        // For now, just logging.
     }
     
-    // If AI provided neither seeds nor a fallback, create a fallback.
-    // This is a safety net. The prompt already instructs the AI to generate a fallback if no seeds.
     if (totalSeeds === 0 && !output.fallbackSearchQuery) {
-        console.warn("AI returned no seeds and no fallback query. Forcing a fallback.", output);
+        console.warn("AI (interpretMusicalIntentFlow) returned no seeds and no fallback query. Forcing a fallback.", output);
         let fallback = input.moodDescription ? `music for ${input.moodDescription}` : "popular music";
-        if (input.instrumentTags && fallback) {
+        if (input.instrumentTags && fallback && input.instrumentTags.trim() !== '') {
             if (!fallback.toLowerCase().includes(input.instrumentTags.toLowerCase())) {
                  fallback += ` with ${input.instrumentTags}`;
             }
         }
-        output.fallbackSearchQuery = fallback;
+         if (input.songName && fallback && input.songName.trim() !== '') {
+            if (!fallback.toLowerCase().includes(input.songName.toLowerCase())) {
+                 fallback += ` like ${input.songName}`;
+            }
+        }
+        output.fallbackSearchQuery = fallback.trim();
     }
-    console.log("interpretMusicalIntentFlow output:", output);
+    console.log("interpretMusicalIntentFlow (free-text mood) output:", output);
     return output;
   }
 );
@@ -222,3 +213,5 @@ const interpretMusicalIntentFlow = ai.defineFlow(
 export async function interpretMusicalIntent(input: InterpretMusicalIntentInput): Promise<InterpretMusicalIntentOutput> {
   return interpretMusicalIntentFlow(input);
 }
+
+    
