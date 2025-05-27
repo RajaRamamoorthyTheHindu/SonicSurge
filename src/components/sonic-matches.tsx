@@ -4,10 +4,12 @@
 import type { Song } from '@/types'; 
 import type { InterpretMusicalIntentOutput as AIOutput } from '@/ai/flows/interpret-musical-intent';
 import { SongRow } from '@/components/song-row';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { SongListItemMobile } from '@/components/song-list-item-mobile'; // New import
+import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Info, Loader2, ChevronDown } from 'lucide-react'; 
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { useMediaQuery } from '@/hooks/use-media-query'; // New import
 
 interface SonicMatchesProps {
   aiInterpretation: AIOutput | null;
@@ -20,6 +22,7 @@ interface SonicMatchesProps {
 
 export function SonicMatches({ aiInterpretation, songs, onLoadMore, isLoadingMore, hasMore, originalMoodDescription }: SonicMatchesProps) {
   const wasSearchAttempted = aiInterpretation || originalMoodDescription;
+  const isDesktop = useMediaQuery('(min-width: 768px)'); // md breakpoint in Tailwind
 
   if (!wasSearchAttempted && songs.length === 0) {
     return null; 
@@ -34,26 +37,38 @@ export function SonicMatches({ aiInterpretation, songs, onLoadMore, isLoadingMor
 
         {songs.length > 0 ? (
           <>
-            <ScrollArea className="w-full rounded-lg border bg-card text-card-foreground shadow-sm subtle-shadow">
-              <Table className="min-w-full music-table">
-                <TableHeader>
-                  <TableRow className="border-b-border/50">
-                    <TableHead className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[30%]">Track Name</TableHead>
-                    {/* <TableHead className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[15%]">Mood Query</TableHead> */}
-                    <TableHead className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[25%]">Artist Name</TableHead>
-                    <TableHead className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[25%]">Album Name</TableHead>
-                    <TableHead className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[10%]">Cover Art</TableHead>
-                    <TableHead className="py-3 px-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[10%]">Spotify</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {songs.map((song) => (
-                    <SongRow key={song.id} song={song} moodQuery={originalMoodDescription} />
-                  ))}
-                </TableBody>
-              </Table>
-              <ScrollBar orientation="horizontal" />
-            </ScrollArea>
+            {/* Desktop Table View */}
+            {isDesktop && (
+              <ScrollArea className="w-full rounded-lg border bg-card text-card-foreground shadow-sm subtle-shadow">
+                <Table className="min-w-full music-table">
+                  <TableHeader>
+                    <TableRow className="border-b-border/50">
+                      <TableHead className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[30%]">Track Name</TableHead>
+                      <TableHead className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[25%]">Artist Name</TableHead>
+                      <TableHead className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[25%]">Album Name</TableHead>
+                      <TableHead className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[10%]">Cover Art</TableHead>
+                      <TableHead className="py-3 px-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[10%]">Spotify</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {songs.map((song) => (
+                      <SongRow key={song.id} song={song} />
+                    ))}
+                  </TableBody>
+                </Table>
+                <ScrollBar orientation="horizontal" />
+              </ScrollArea>
+            )}
+
+            {/* Mobile List View */}
+            {!isDesktop && (
+              <div className="bg-card rounded-lg border shadow-sm subtle-shadow overflow-hidden">
+                {songs.map((song) => (
+                  <SongListItemMobile key={song.id} song={song} />
+                ))}
+              </div>
+            )}
+            
             {hasMore && (
               <div className="flex justify-center mt-6">
                 <Button
