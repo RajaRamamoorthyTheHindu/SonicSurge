@@ -12,7 +12,7 @@ import { PlayCircle, StopCircle } from 'lucide-react';
 
 interface SongRowProps {
   song: Song;
-  moodQuery?: string;
+  moodQuery?: string; // Kept for potential future use, but not displayed
 }
 
 export function SongRow({ song, moodQuery }: SongRowProps) {
@@ -23,8 +23,8 @@ export function SongRow({ song, moodQuery }: SongRowProps) {
   };
 
   // Determine the number of columns for the player row to span
-  // Track Name, Mood Query, Artist Name, Album Name, Cover Art, Listen Button = 6 columns
-  const numberOfColumns = 6;
+  // Track Name, Artist Name, Album Name, Cover Art, Listen Button = 5 columns
+  const numberOfColumns = 5;
 
   return (
     <>
@@ -32,7 +32,7 @@ export function SongRow({ song, moodQuery }: SongRowProps) {
         <TableCell className="py-3 px-4 font-medium text-foreground">
           <div className="text-base group-hover:text-primary transition-colors">{song.songTitle}</div>
         </TableCell>
-        <TableCell className="py-3 px-4 text-sm text-muted-foreground">{moodQuery || 'N/A'}</TableCell>
+        {/* <TableCell className="py-3 px-4 text-sm text-muted-foreground">{moodQuery || 'N/A'}</TableCell> */}
         <TableCell className="py-3 px-4 text-sm text-muted-foreground">{song.artistName}</TableCell>
         <TableCell className="py-3 px-4 text-sm text-muted-foreground">{song.albumName || 'N/A'}</TableCell>
         <TableCell className="py-3 px-4">

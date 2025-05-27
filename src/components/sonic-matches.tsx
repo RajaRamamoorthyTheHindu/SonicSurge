@@ -34,14 +34,14 @@ export function SonicMatches({ aiInterpretation, songs, onLoadMore, isLoadingMor
 
         {songs.length > 0 ? (
           <>
-            <ScrollArea className="w-full rounded-lg border bg-card text-card-foreground shadow-sm subtle-shadow"> {/* Removed whitespace-nowrap */}
+            <ScrollArea className="w-full rounded-lg border bg-card text-card-foreground shadow-sm subtle-shadow">
               <Table className="min-w-full music-table">
                 <TableHeader>
                   <TableRow className="border-b-border/50">
-                    <TableHead className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[25%]">Track Name</TableHead>
-                    <TableHead className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[15%]">Mood Query</TableHead>
-                    <TableHead className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[20%]">Artist Name</TableHead>
-                    <TableHead className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[20%]">Album Name</TableHead>
+                    <TableHead className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[30%]">Track Name</TableHead>
+                    {/* <TableHead className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[15%]">Mood Query</TableHead> */}
+                    <TableHead className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[25%]">Artist Name</TableHead>
+                    <TableHead className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[25%]">Album Name</TableHead>
                     <TableHead className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[10%]">Cover Art</TableHead>
                     <TableHead className="py-3 px-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[10%]">Spotify</TableHead>
                   </TableRow>
