@@ -6,8 +6,9 @@ import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import { FindYourVibe, FormValues as FindYourVibeFormValues } from '@/components/find-your-vibe';
 import { SonicMatches } from '@/components/sonic-matches';
-import type { Song, ProfileAnalysisOutput } from '@/types';
+import type { Song } from '@/types';
 import type { InterpretMusicalIntentInput, InterpretMusicalIntentOutput as AIOutput } from '@/ai/flows/interpret-musical-intent';
+import type { ProfileAnalysisOutput } from '@/ai/flows/analyze-social-profile';
 import type { InterpretProfileForMusicInput } from '@/ai/flows/interpret-profile-for-music';
 import { interpretMusicalIntent } from '@/ai/flows/interpret-musical-intent';
 import { analyzeSocialProfile } from '@/ai/flows/analyze-social-profile';
@@ -43,24 +44,32 @@ export default function Home() {
       return;
     }
     setIsProfileAnalysisLoading(true);
-    setProfileAnalysisResult(null);
+    setProfileAnalysisResult(null); // Clear previous results
+    console.log("page.tsx: handleAnalyzeProfile - Starting analysis for URL:", url);
     try {
       const analysis = await analyzeSocialProfile({ socialProfileUrl: url });
       setProfileAnalysisResult(analysis);
+      console.log("page.tsx: handleAnalyzeProfile - Analysis result:", JSON.stringify(analysis));
       if (!analysis.keywords?.length && !analysis.location && !analysis.languages?.length) {
-        toast({ title: "Profile Analysis", description: "Could not extract detailed insights, but will use URL for context.", variant: "default" });
+        toast({ title: "Profile Analysis", description: "Could not extract detailed insights from the profile, but will use the URL for general context.", variant: "default" });
       } else {
-        toast({ title: "Profile Analysis Complete", description: "Insights extracted. You can now find your vibe.", variant: "default" });
+        toast({ title: "Profile Analysis Complete", description: "Insights extracted. You can now find your vibe based on this profile.", variant: "default" });
       }
     } catch (error) {
-      console.error('Error analyzing profile:', (error as Error));
+      let message = 'Could not analyze the profile URL.';
+      if (error instanceof Error) message = error.message;
+      else if (typeof error === 'string') message = error;
+      else if (typeof error === 'object' && error !== null && 'message' in error && typeof (error as any).message === 'string') message = (error as any).message;
+      
+      console.error('page.tsx: handleAnalyzeProfile - Error analyzing profile:', message, error);
       toast({
         title: 'Profile Analysis Failed',
-        description: (error as Error).message || 'Could not analyze the profile URL.',
+        description: message,
         variant: 'destructive',
       });
     } finally {
       setIsProfileAnalysisLoading(false);
+      console.log("page.tsx: handleAnalyzeProfile - Finished analysis for URL:", url);
     }
   }, [toast]);
 
@@ -76,7 +85,7 @@ export default function Home() {
     setTotalSongsAvailable(0);
     setShowResults(false);
     setAiInterpretation(null);
-    setCurrentFullFormValues(formValuesFromForm); // Store for pagination
+    setCurrentFullFormValues(formValuesFromForm); 
     setActiveSearchType(searchType);
 
     let finalAiOutput: AIOutput | null = null;
@@ -87,6 +96,7 @@ export default function Home() {
         const spotifyParams = buildSpotifyParamsFromMoodInput(formValuesFromForm.moodComposerParams);
         
         const hasSeeds = spotifyParams.seed_genres && spotifyParams.seed_genres.length > 0;
+        // Ensure Object.keys() is used on spotifyParams, not finalAiOutput which is null here
         const hasTargets = Object.keys(spotifyParams).some(k => k.startsWith('target_') && spotifyParams[k as keyof typeof spotifyParams] !== undefined);
 
         if (hasSeeds || hasTargets) {
@@ -97,12 +107,13 @@ export default function Home() {
              };
         } else {
             toast({ title: "Mood Composer", description: "The selected mood profile and adjustments didn't yield specific parameters. Trying a general search.", variant: "default" });
-            finalAiOutput = { // Force a fallback
+            finalAiOutput = { 
                 fallbackSearchQuery: formValuesFromForm.moodComposerParams.selectedMoodName 
                                      ? `music for ${formValuesFromForm.moodComposerParams.selectedMoodName.replace(/_/g, ' ')}` 
                                      : "popular music"
             };
         }
+        console.log("page.tsx: Structured mood - finalAiOutput for Spotify:", JSON.stringify(finalAiOutput));
 
       } else if (searchType === 'mood' && formValuesFromForm.moodDescription) {
         console.log("page.tsx: Free-text mood path. Description:", formValuesFromForm.moodDescription);
@@ -113,36 +124,50 @@ export default function Home() {
         };
         console.log("page.tsx: Calling interpretMusicalIntent with input:", JSON.stringify(aiInput));
         finalAiOutput = await interpretMusicalIntent(aiInput);
+        console.log("page.tsx: Free-text mood - finalAiOutput from interpretMusicalIntent:", JSON.stringify(finalAiOutput));
 
       } else if (searchType === 'profile' && formValuesFromForm.socialProfileUrl) {
         console.log("page.tsx: Social profile path. URL:", formValuesFromForm.socialProfileUrl);
         let currentAnalysis = profileAnalysisResult;
+        // Re-analyze if URL changed or no current analysis
         if (!currentAnalysis || formValuesFromForm.socialProfileUrl !== currentAnalysis.sourceUrl) {
             setIsProfileAnalysisLoading(true); 
             try {
+                console.log("page.tsx: Social profile - Re-analyzing profile URL:", formValuesFromForm.socialProfileUrl);
                 currentAnalysis = await analyzeSocialProfile({ socialProfileUrl: formValuesFromForm.socialProfileUrl });
                 setProfileAnalysisResult(currentAnalysis); 
+                console.log("page.tsx: Social profile - Analysis result:", JSON.stringify(currentAnalysis));
+            } catch(profileError) {
+                let message = 'Failed to analyze social profile during search.';
+                if (profileError instanceof Error) message = profileError.message;
+                else if (typeof profileError === 'string') message = profileError;
+                else if (typeof profileError === 'object' && profileError !== null && 'message' in profileError && typeof (profileError as any).message === 'string') message = (profileError as any).message;
+                console.error("page.tsx: Social profile - Error re-analyzing profile:", message, profileError);
+                toast({ title: "Profile Analysis Error", description: message, variant: "destructive" });
+                // Decide if we should proceed with empty analysis or stop
+                currentAnalysis = { sourceUrl: formValuesFromForm.socialProfileUrl, keywords:[], location: '', languages: [] }; // Proceed with empty
             } finally {
                 setIsProfileAnalysisLoading(false);
             }
         }
 
         const profileInterpretInput: InterpretProfileForMusicInput = {
-          analysis: currentAnalysis || { sourceUrl: formValuesFromForm.socialProfileUrl, keywords: [], location: '', languages: [] }, // Provide default if currentAnalysis is null
+          analysis: currentAnalysis || { sourceUrl: formValuesFromForm.socialProfileUrl, keywords: [], location: '', languages: [] },
           songName: formValuesFromForm.songName,
           instrumentTags: formValuesFromForm.instrumentTags,
         };
         console.log("page.tsx: Calling interpretProfileAnalysisForMusic with input:", JSON.stringify(profileInterpretInput));
         finalAiOutput = await interpretProfileAnalysisForMusic(profileInterpretInput);
+        console.log("page.tsx: Social profile - finalAiOutput from interpretProfileAnalysisForMusic:", JSON.stringify(finalAiOutput));
       } else {
         toast({ title: "Invalid Search", description: "Please provide input for the selected search method.", variant: "destructive" });
-        console.log("page.tsx: Invalid search type or missing primary input.");
+        console.log("page.tsx: Invalid search type or missing primary input for active tab.");
         setIsLoadingSearch(false);
-        setShowResults(true); // Show results area to display potential "no results" message if needed
+        setShowResults(true); 
         return;
       }
 
-      console.log("page.tsx: Final AI Output for Spotify:", JSON.stringify(finalAiOutput));
+      console.log("page.tsx: Final AI Output before loading songs:", JSON.stringify(finalAiOutput));
       setAiInterpretation(finalAiOutput);
 
       if (finalAiOutput && ( (finalAiOutput.seed_tracks && finalAiOutput.seed_tracks.length > 0) || 
@@ -152,31 +177,37 @@ export default function Home() {
                          Object.keys(finalAiOutput).some(k => k.startsWith('target_') && finalAiOutput[k as keyof AIOutput] !== undefined))
         )
       {
+        console.log("page.tsx: AI output is actionable. Calling loadSongs.");
         await loadSongs(finalAiOutput, formValuesFromForm, 0, true);
       } else {
+        console.log("page.tsx: AI output NOT actionable. Seeds/targets/fallback missing. Final AI Output:", JSON.stringify(finalAiOutput));
         toast({
           title: 'Could not interpret intent',
           description: "The AI could not determine specific recommendations or a search query. Please try rephrasing or adding more details.",
           variant: 'destructive',
         });
-        console.log("page.tsx: AI output not actionable, no seeds, targets, or fallback query.");
-        setShowResults(true); 
         setRecommendedSongs([]);
         setTotalSongsAvailable(0);
+        setShowResults(true); 
       }
     } catch (error) {
-      console.error('page.tsx: Error in search submission or AI interpretation:', (error as Error).message, error);
+      let message = 'Could not process your request. Please try again.';
+      if (error instanceof Error) message = error.message;
+      else if (typeof error === 'string') message = error;
+      else if (typeof error === 'object' && error !== null && 'message' in error && typeof (error as any).message === 'string') message = (error as any).message;
+
+      console.error('page.tsx: Error in search submission or AI interpretation pipeline:', message, error);
       toast({
         title: 'Error Processing Request',
-        description: (error as Error).message || 'Could not process your request. Please try again.',
+        description: message,
         variant: 'destructive',
       });
-      setShowResults(true);
       setRecommendedSongs([]);
       setTotalSongsAvailable(0);
+      setShowResults(true); // Ensure results area is shown on error
     } finally {
       setIsLoadingSearch(false);
-      console.log("page.tsx: handleSearchSubmit FINALLY block, isLoadingSearch set to false.");
+      console.log("page.tsx: handleSearchSubmit FINALLY block, isLoadingSearch set to false. showResults current value:", showResults);
     }
   };
 
@@ -188,11 +219,8 @@ export default function Home() {
   ) => {
     if (!isNewSearch) {
       setIsLoadingMore(true);
-    } else {
-      // Already set by handleSearchSubmit, but good to be explicit if loadSongs could be called from elsewhere
-      // setIsLoadingSearch(true); 
     }
-    console.log("page.tsx: loadSongs - Calling fetchSpotifyTracksAction with AI output:", JSON.stringify(aiOutputToUse), "form values (less relevant):", JSON.stringify(formValuesToUse), "offset:", offsetToLoad, "isNewSearch:", isNewSearch);
+    console.log("page.tsx: loadSongs - START. AI output:", JSON.stringify(aiOutputToUse), "Offset:", offsetToLoad, "IsNewSearch:", isNewSearch);
 
     try {
       const { songs: newSongs, total: totalFromServer } = await fetchSpotifyTracksAction(
@@ -201,22 +229,27 @@ export default function Home() {
         SONGS_PER_PAGE,
         offsetToLoad
       );
-      console.log("page.tsx: loadSongs - Received songs from action:", newSongs.length, "total:", totalFromServer);
+      console.log("page.tsx: loadSongs - Received from action. New songs count:", newSongs.length, "Total from server:", totalFromServer);
 
       setRecommendedSongs(prev => isNewSearch ? newSongs : [...prev, ...newSongs]);
       setTotalSongsAvailable(totalFromServer); 
       setCurrentOffset(offsetToLoad + newSongs.length);
-      setShowResults(true);
-
+      
       if (newSongs.length === 0 && isNewSearch) {
         toast({ title: "No songs found for this vibe", description: "Try adjusting your mood or filters!", variant: "default"});
       }
+      console.log("page.tsx: loadSongs - State updated. Recommended songs count:", (isNewSearch ? newSongs : recommendedSongs.concat(newSongs)).length);
 
     } catch (error) {
-      console.error('page.tsx: loadSongs - Error fetching songs:', (error as Error).message, error);
+      let message = 'Could not fetch song recommendations. Please try again.';
+      if (error instanceof Error) message = error.message;
+      else if (typeof error === 'string') message = error;
+      else if (typeof error === 'object' && error !== null && 'message' in error && typeof (error as any).message === 'string') message = (error as any).message;
+      
+      console.error('page.tsx: loadSongs - Error fetching songs:', message, error);
       toast({
         title: 'Error Fetching Songs',
-        description: (error as Error).message || 'Could not fetch song recommendations. Please try again.',
+        description: message,
         variant: 'destructive',
       });
       if(isNewSearch) {
@@ -227,9 +260,8 @@ export default function Home() {
       if (!isNewSearch) {
         setIsLoadingMore(false);
       }
-      // if (isNewSearch) setIsLoadingSearch(false); // This is handled by handleSearchSubmit's finally
-      setShowResults(true); // Ensure results section is shown even if there's an error or no songs
-      console.log("page.tsx: loadSongs FINALLY block. isLoadingMore:", isLoadingMore, "showResults:", true);
+      setShowResults(true); 
+      console.log("page.tsx: loadSongs FINALLY block. isLoadingMore:", isLoadingMore, "showResults set to true.");
     }
   };
   
@@ -239,8 +271,9 @@ export default function Home() {
       console.warn("page.tsx: handleLoadMore - Cannot load more, context missing. AI Interpretation:", !!aiInterpretation, "Form Values:", !!currentFullFormValues);
       return;
     }
-    if (recommendedSongs.length >= totalSongsAvailable) {
-      console.log("page.tsx: handleLoadMore - All songs loaded.");
+    if (recommendedSongs.length >= totalSongsAvailable && totalSongsAvailable > 0) { // Added check for totalSongsAvailable > 0
+      console.log("page.tsx: handleLoadMore - All songs loaded or total is zero.");
+      toast({ title: "All songs loaded", description: "You've reached the end of the results for this vibe!", variant: "default" });
       return;
     }
     console.log("page.tsx: handleLoadMore - Loading next batch of songs. Current offset:", currentOffset);
@@ -248,7 +281,10 @@ export default function Home() {
   };
 
   useEffect(() => {
-    if (showResults && isLoadingSearch === false && recommendedSongs.length > 0 && currentOffset === recommendedSongs.length) { 
+    console.log("page.tsx: Scroll useEffect triggered. showResults:", showResults, "isLoadingSearch:", isLoadingSearch, "recommendedSongs.length:", recommendedSongs.length, "currentOffset:", currentOffset);
+    // Scroll to results only if it's a new search, loading is finished, and there are songs
+    if (showResults && !isLoadingSearch && recommendedSongs.length > 0 && currentOffset === recommendedSongs.length && currentOffset <= SONGS_PER_PAGE ) { 
+      console.log("page.tsx: Scroll condition MET for new search. Scrolling to results.");
       const resultsSection = document.getElementById('sonic-matches-results');
       resultsSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
@@ -257,7 +293,7 @@ export default function Home() {
   const hasMoreSongs = recommendedSongs.length > 0 && recommendedSongs.length < totalSongsAvailable;
   
   const currentMoodDescriptionForDisplay = activeSearchType === 'structured_mood' 
-    ? currentFullFormValues?.moodComposerParams?.selectedMoodName // Or a display name if you have one
+    ? currentFullFormValues?.moodComposerParams?.selectedMoodName?.replace(/_/g, ' ') || currentFullFormValues?.moodComposerParams?.energy?.toString() // Or a display name if you have one
     : currentFullFormValues?.moodDescription;
 
 
@@ -282,14 +318,13 @@ export default function Home() {
           <div className="flex flex-col justify-center items-center py-12 mt-10 space-y-4 animate-fade-in">
             <Loader2 className="h-10 w-10 animate-spin text-primary" />
             <p className="text-lg font-semibold text-foreground">Finding your vibe…</p>
-            <p className="text-sm text-muted-foreground">This might take a moment...</p>
+            <p className="text-sm text-muted-foreground">This might take a moment as we consult the music oracles...</p>
           </div>
         )}
 
         {showResults && !isLoadingSearch && (
           <div id="sonic-matches-results" className="mt-12 md:mt-16 animate-slide-up">
              <SonicMatches 
-               aiInterpretation={aiInterpretation} 
                songs={recommendedSongs}
                onLoadMore={handleLoadMore}
                isLoadingMore={isLoadingMore}

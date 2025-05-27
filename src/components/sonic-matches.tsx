@@ -2,7 +2,7 @@
 'use client';
 
 import type { Song } from '@/types'; 
-import type { InterpretMusicalIntentOutput as AIOutput } from '@/ai/flows/interpret-musical-intent';
+// import type { InterpretMusicalIntentOutput as AIOutput } from '@/ai/flows/interpret-musical-intent'; // No longer directly used for display
 import { SongRow } from '@/components/song-row';
 import { SongListItemMobile } from '@/components/song-list-item-mobile';
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -12,7 +12,7 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { useMediaQuery } from '@/hooks/use-media-query';
 
 interface SonicMatchesProps {
-  aiInterpretation: AIOutput | null;
+  // aiInterpretation: AIOutput | null; // Removed as the card displaying it is hidden
   songs: Song[];
   onLoadMore: () => void;
   isLoadingMore: boolean;
@@ -20,13 +20,17 @@ interface SonicMatchesProps {
   originalMoodDescription?: string; 
 }
 
-export function SonicMatches({ aiInterpretation, songs, onLoadMore, isLoadingMore, hasMore, originalMoodDescription }: SonicMatchesProps) {
-  const wasSearchAttempted = aiInterpretation || originalMoodDescription;
+export function SonicMatches({ songs, onLoadMore, isLoadingMore, hasMore, originalMoodDescription }: SonicMatchesProps) {
+  // const wasSearchAttempted = aiInterpretation || originalMoodDescription; // aiInterpretation is no longer passed
+  const wasSearchAttempted = originalMoodDescription || songs.length > 0; // Consider search attempted if mood was provided or songs loaded
   const isDesktop = useMediaQuery('(min-width: 768px)') // md breakpoint in Tailwind
 
   if (!wasSearchAttempted && songs.length === 0) {
+    // console.log("SonicMatches: Not rendering - no search attempted and no songs.");
     return null; 
   }
+  // console.log("SonicMatches: Rendering. Songs count:", songs.length, "WasSearchAttempted:", wasSearchAttempted, "IsDesktop:", isDesktop, "OriginalMood:", originalMoodDescription);
+
 
   return (
     <section id="sonic-matches-results" className="w-full">
@@ -47,7 +51,7 @@ export function SonicMatches({ aiInterpretation, songs, onLoadMore, isLoadingMor
                       <TableHead className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[25%]">Artist Name</TableHead>
                       <TableHead className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[25%]">Album Name</TableHead>
                       <TableHead className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[10%]">Cover Art</TableHead>
-                      <TableHead className="py-3 px-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[10%]">Listen</TableHead>
+                      <TableHead className="py-3 px-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[10%]">Actions</TableHead> 
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -92,7 +96,7 @@ export function SonicMatches({ aiInterpretation, songs, onLoadMore, isLoadingMor
             <div className="text-center py-10 flex flex-col items-center space-y-3 bg-card rounded-xl subtle-shadow p-6 md:p-8">
               <Info className="h-10 w-10 text-muted-foreground" />
               <p className="text-lg font-medium text-foreground">No matches for that vibe.</p>
-              <p className="text-sm text-muted-foreground">Try changing up your search terms.</p>
+              <p className="text-sm text-muted-foreground">Try changing up your search terms or mood.</p>
             </div>
           )
         )}
@@ -100,4 +104,3 @@ export function SonicMatches({ aiInterpretation, songs, onLoadMore, isLoadingMor
     </section>
   );
 }
-
