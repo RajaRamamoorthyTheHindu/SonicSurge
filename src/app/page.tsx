@@ -8,7 +8,7 @@ import { FindYourVibe, FormValues as FindYourVibeFormValues } from '@/components
 import { SonicMatches } from '@/components/sonic-matches';
 import type { Song } from '@/types';
 import type { InterpretMusicalIntentInput, InterpretMusicalIntentOutput as AIOutput } from '@/ai/flows/interpret-musical-intent';
-import type { ProfileAnalysisOutput } from '@/ai/flows/analyze-social-profile';
+import type { AnalyzeSocialProfileOutput, ProfileAnalysisOutput } from '@/ai/flows/analyze-social-profile'; // Corrected ProfileAnalysisOutput import
 import type { InterpretProfileForMusicInput } from '@/ai/flows/interpret-profile-for-music';
 import { interpretMusicalIntent } from '@/ai/flows/interpret-musical-intent';
 import { analyzeSocialProfile } from '@/ai/flows/analyze-social-profile';
@@ -33,7 +33,7 @@ export default function Home() {
   const [currentOffset, setCurrentOffset] = useState(0);
   const [totalSongsAvailable, setTotalSongsAvailable] = useState(0);
 
-  const [profileAnalysisResult, setProfileAnalysisResult] = useState<ProfileAnalysisOutput | null>(null);
+  const [profileAnalysisResult, setProfileAnalysisResult] = useState<AnalyzeSocialProfileOutput | null>(null); // Use AnalyzeSocialProfileOutput type
   const [isProfileAnalysisLoading, setIsProfileAnalysisLoading] = useState(false);
   const [activeSearchType, setActiveSearchType] = useState<'mood' | 'profile' | 'structured_mood' | null>(null);
 
@@ -96,7 +96,6 @@ export default function Home() {
         const spotifyParams = buildSpotifyParamsFromMoodInput(formValuesFromForm.moodComposerParams);
         
         const hasSeeds = spotifyParams.seed_genres && spotifyParams.seed_genres.length > 0;
-        // Ensure Object.keys() is used on spotifyParams, not finalAiOutput which is null here
         const hasTargets = Object.keys(spotifyParams).some(k => k.startsWith('target_') && spotifyParams[k as keyof typeof spotifyParams] !== undefined);
 
         if (hasSeeds || hasTargets) {
@@ -106,11 +105,12 @@ export default function Home() {
                 ...spotifyParams 
              };
         } else {
-            toast({ title: "Mood Composer", description: "The selected mood profile and adjustments didn't yield specific parameters. Trying a general search.", variant: "default" });
-            finalAiOutput = { 
-                fallbackSearchQuery: formValuesFromForm.moodComposerParams.selectedMoodName 
+            const fallbackQuery = formValuesFromForm.moodComposerParams.selectedMoodName 
                                      ? `music for ${formValuesFromForm.moodComposerParams.selectedMoodName.replace(/_/g, ' ')}` 
-                                     : "popular music"
+                                     : "popular music";
+            console.log("page.tsx: Structured mood - No seeds/targets from builder, using fallback:", fallbackQuery);
+            finalAiOutput = { 
+                fallbackSearchQuery: fallbackQuery
             };
         }
         console.log("page.tsx: Structured mood - finalAiOutput for Spotify:", JSON.stringify(finalAiOutput));
@@ -144,8 +144,7 @@ export default function Home() {
                 else if (typeof profileError === 'object' && profileError !== null && 'message' in profileError && typeof (profileError as any).message === 'string') message = (profileError as any).message;
                 console.error("page.tsx: Social profile - Error re-analyzing profile:", message, profileError);
                 toast({ title: "Profile Analysis Error", description: message, variant: "destructive" });
-                // Decide if we should proceed with empty analysis or stop
-                currentAnalysis = { sourceUrl: formValuesFromForm.socialProfileUrl, keywords:[], location: '', languages: [] }; // Proceed with empty
+                currentAnalysis = { sourceUrl: formValuesFromForm.socialProfileUrl, keywords: [], location: '', languages: [] }; 
             } finally {
                 setIsProfileAnalysisLoading(false);
             }
@@ -167,20 +166,35 @@ export default function Home() {
         return;
       }
 
-      console.log("page.tsx: Final AI Output before loading songs:", JSON.stringify(finalAiOutput));
-      setAiInterpretation(finalAiOutput);
+      // Fallback if AI output is not actionable
+      if (!finalAiOutput || 
+          (!finalAiOutput.seed_tracks?.length &&
+           !finalAiOutput.seed_artists?.length &&
+           !finalAiOutput.seed_genres?.length &&
+           !Object.keys(finalAiOutput).some(k => k.startsWith('target_') && finalAiOutput[k as keyof AIOutput] !== undefined) &&
+           !finalAiOutput.fallbackSearchQuery)
+      ) {
+          console.warn("page.tsx: AI output was null or not actionable. Constructing a generic fallback.", finalAiOutput);
+          let fallback = "popular music";
+          if (searchType === 'mood' && formValuesFromForm.moodDescription) {
+              fallback = `music for ${formValuesFromForm.moodDescription}`;
+          } else if (searchType === 'structured_mood' && formValuesFromForm.moodComposerParams?.selectedMoodName) {
+              fallback = `music for ${formValuesFromForm.moodComposerParams.selectedMoodName.replace(/_/g, ' ')}`;
+          } else if (searchType === 'profile' && (formValuesFromForm.songName || formValuesFromForm.instrumentTags)) {
+              fallback = `music like ${formValuesFromForm.songName || ''} with ${formValuesFromForm.instrumentTags || ''}`.trim();
+          }
+          finalAiOutput = { fallbackSearchQuery: fallback };
+      }
 
-      if (finalAiOutput && ( (finalAiOutput.seed_tracks && finalAiOutput.seed_tracks.length > 0) || 
-                         (finalAiOutput.seed_artists && finalAiOutput.seed_artists.length > 0) || 
-                         (finalAiOutput.seed_genres && finalAiOutput.seed_genres.length > 0) ||
-                         finalAiOutput.fallbackSearchQuery ||
-                         Object.keys(finalAiOutput).some(k => k.startsWith('target_') && finalAiOutput[k as keyof AIOutput] !== undefined))
-        )
-      {
-        console.log("page.tsx: AI output is actionable. Calling loadSongs.");
+      console.log("page.tsx: Final AI Output before loading songs:", JSON.stringify(finalAiOutput));
+      setAiInterpretation(finalAiOutput); // Set AI interpretation for display
+
+      if (finalAiOutput) { // We ensure finalAiOutput is always set now
+        console.log("page.tsx: AI output is considered actionable. Calling loadSongs.");
         await loadSongs(finalAiOutput, formValuesFromForm, 0, true);
       } else {
-        console.log("page.tsx: AI output NOT actionable. Seeds/targets/fallback missing. Final AI Output:", JSON.stringify(finalAiOutput));
+        // This case should ideally not be reached due to the fallback logic above
+        console.error("page.tsx: UNEXPECTED - finalAiOutput is still null/undefined after fallback logic.");
         toast({
           title: 'Could not interpret intent',
           description: "The AI could not determine specific recommendations or a search query. Please try rephrasing or adding more details.",
@@ -204,7 +218,7 @@ export default function Home() {
       });
       setRecommendedSongs([]);
       setTotalSongsAvailable(0);
-      setShowResults(true); // Ensure results area is shown on error
+      setShowResults(true); 
     } finally {
       setIsLoadingSearch(false);
       console.log("page.tsx: handleSearchSubmit FINALLY block, isLoadingSearch set to false. showResults current value:", showResults);
@@ -271,7 +285,7 @@ export default function Home() {
       console.warn("page.tsx: handleLoadMore - Cannot load more, context missing. AI Interpretation:", !!aiInterpretation, "Form Values:", !!currentFullFormValues);
       return;
     }
-    if (recommendedSongs.length >= totalSongsAvailable && totalSongsAvailable > 0) { // Added check for totalSongsAvailable > 0
+    if (recommendedSongs.length >= totalSongsAvailable && totalSongsAvailable > 0) { 
       console.log("page.tsx: handleLoadMore - All songs loaded or total is zero.");
       toast({ title: "All songs loaded", description: "You've reached the end of the results for this vibe!", variant: "default" });
       return;
@@ -282,7 +296,6 @@ export default function Home() {
 
   useEffect(() => {
     console.log("page.tsx: Scroll useEffect triggered. showResults:", showResults, "isLoadingSearch:", isLoadingSearch, "recommendedSongs.length:", recommendedSongs.length, "currentOffset:", currentOffset);
-    // Scroll to results only if it's a new search, loading is finished, and there are songs
     if (showResults && !isLoadingSearch && recommendedSongs.length > 0 && currentOffset === recommendedSongs.length && currentOffset <= SONGS_PER_PAGE ) { 
       console.log("page.tsx: Scroll condition MET for new search. Scrolling to results.");
       const resultsSection = document.getElementById('sonic-matches-results');
@@ -293,7 +306,7 @@ export default function Home() {
   const hasMoreSongs = recommendedSongs.length > 0 && recommendedSongs.length < totalSongsAvailable;
   
   const currentMoodDescriptionForDisplay = activeSearchType === 'structured_mood' 
-    ? currentFullFormValues?.moodComposerParams?.selectedMoodName?.replace(/_/g, ' ') || currentFullFormValues?.moodComposerParams?.energy?.toString() // Or a display name if you have one
+    ? currentFullFormValues?.moodComposerParams?.selectedMoodName?.replace(/_/g, ' ') || currentFullFormValues?.moodComposerParams?.energy?.toString() 
     : currentFullFormValues?.moodDescription;
 
 
@@ -326,6 +339,7 @@ export default function Home() {
           <div id="sonic-matches-results" className="mt-12 md:mt-16 animate-slide-up">
              <SonicMatches 
                songs={recommendedSongs}
+               aiInterpretation={aiInterpretation} // Pass AI interpretation for display
                onLoadMore={handleLoadMore}
                isLoadingMore={isLoadingMore}
                hasMore={hasMoreSongs}

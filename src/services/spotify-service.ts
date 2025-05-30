@@ -9,18 +9,16 @@ const TOKEN_ENDPOINT = 'https://accounts.spotify.com/api/token';
 let accessToken: string | null = null;
 let tokenExpiryTime: number | null = null;
 
-// Cache for available genre seeds
 let availableGenresCache: string[] | null = null;
 let genresCacheTimestamp: number | null = null;
-const GENRES_CACHE_DURATION = 1000 * 60 * 60 * 24; // 24 hours in milliseconds
+const GENRES_CACHE_DURATION = 1000 * 60 * 60 * 24; 
 
-// Cache for artist lookups
 interface ArtistCacheEntry {
   artists: SpotifyArtist[];
   timestamp: number;
 }
 const artistCache = new Map<string, ArtistCacheEntry>();
-const ARTIST_CACHE_DURATION = 1000 * 60 * 60 * 24; // 24 hours in milliseconds
+const ARTIST_CACHE_DURATION = 1000 * 60 * 60 * 24; 
 
 
 async function getClientCredentialsToken(): Promise<string> {
@@ -35,7 +33,7 @@ async function getClientCredentialsToken(): Promise<string> {
     console.error('Spotify client ID or secret not configured or using placeholder values.');
     throw new Error('Spotify API credentials missing or invalid. Please update your .env file.');
   }
-
+  console.log("spotify-service: Fetching new Spotify client credentials token.");
   const response = await fetch(TOKEN_ENDPOINT, {
     method: 'POST',
     headers: {
@@ -55,8 +53,8 @@ async function getClientCredentialsToken(): Promise<string> {
 
   const tokenData = await response.json();
   accessToken = tokenData.access_token;
-  tokenExpiryTime = Date.now() + (tokenData.expires_in - 60) * 1000; // Subtract 60 seconds for buffer
-  
+  tokenExpiryTime = Date.now() + (tokenData.expires_in - 60) * 1000; 
+  console.log("spotify-service: Successfully fetched and cached new Spotify token.");
   return accessToken!;
 }
 
@@ -124,7 +122,6 @@ interface SpotifyRecommendationsResponse {
     }>;
 }
 
-// Helper to map SpotifyTrackItem to our Song type
 function mapSpotifyItemToSong(item: SpotifyTrackItem): Song {
     const albumArt = item.album.images[0]?.url;
     const artistName = item.artists[0]?.name || 'Unknown Artist';
@@ -156,6 +153,7 @@ export async function getSpotifyRecommendationsService(
   params: InterpretMusicalIntentOutput,
   limit: number = 5
 ): Promise<{ songs: Song[]; total: number }> {
+  console.log("spotify-service: getSpotifyRecommendationsService called with params:", JSON.stringify(params), "limit:", limit);
   const token = await getClientCredentialsToken();
   const queryParams = new URLSearchParams();
 
@@ -180,37 +178,48 @@ export async function getSpotifyRecommendationsService(
   const hasTargets = Object.keys(params).some(k => k.startsWith('target_') && params[k as keyof InterpretMusicalIntentOutput] !== undefined);
 
   if (totalSeeds === 0 && !hasTargets) {
-    console.warn("No seeds and no target parameters provided for Spotify recommendations. Spotify will likely return an error. Returning empty results.");
+    console.warn("spotify-service: No seeds and no target parameters provided for Spotify recommendations. Returning empty results.");
     return { songs: [], total: 0 }; 
   }
   if (totalSeeds === 0 && hasTargets) {
-    console.warn("Spotify recommendations called with target parameters but no seeds. Results may be broad or an error might occur from Spotify.");
+    console.warn("spotify-service: Spotify recommendations called with target parameters but no seeds. Results may be broad or an error might occur from Spotify.");
   }
 
-
+  if (params.target_acousticness) queryParams.append('target_acousticness', params.target_acousticness.toString());
   if (params.target_danceability) queryParams.append('target_danceability', params.target_danceability.toString());
   if (params.target_energy) queryParams.append('target_energy', params.target_energy.toString());
-  if (params.target_tempo) queryParams.append('target_tempo', params.target_tempo.toString());
-  if (params.target_valence) queryParams.append('target_valence', params.target_valence.toString());
   if (params.target_instrumentalness) queryParams.append('target_instrumentalness', params.target_instrumentalness.toString());
+  if (params.target_liveness) queryParams.append('target_liveness', params.target_liveness.toString());
+  if (params.target_loudness) queryParams.append('target_loudness', params.target_loudness.toString());
+  if (params.target_mode) queryParams.append('target_mode', params.target_mode.toString());
+  if (params.target_popularity) queryParams.append('target_popularity', params.target_popularity.toString());
+  if (params.target_speechiness) queryParams.append('target_speechiness', params.target_speechiness.toString());
+  if (params.target_tempo) queryParams.append('target_tempo', params.target_tempo.toString());
+  if (params.target_time_signature) queryParams.append('target_time_signature', params.target_time_signature.toString());
+  if (params.target_valence) queryParams.append('target_valence', params.target_valence.toString());
   
   queryParams.append('limit', limit.toString());
   
   const recommendationsUrl = `${SPOTIFY_API_BASE}/recommendations?${queryParams.toString()}`;
-  console.log(`Fetching Spotify recommendations with URL: ${recommendationsUrl}`);
+  console.log(`spotify-service: Fetching Spotify recommendations with URL: ${recommendationsUrl}`);
   const response = await fetch(recommendationsUrl, {
     headers: { Authorization: `Bearer ${token}` },
   });
+  console.log(`spotify-service: Recommendations API response status: ${response.status}`);
 
   if (!response.ok) {
     const errorBody = await response.text();
-    console.error('Spotify Recommendations API Error:', response.status, errorBody, `Query: ${queryParams.toString()}`);
+    console.error('spotify-service: Spotify Recommendations API Error:', response.status, errorBody, `Query: ${queryParams.toString()}`);
     throw new Error(`Spotify API recommendations failed: ${response.statusText} - ${errorBody}`);
   }
 
   const data: SpotifyRecommendationsResponse = await response.json();
   const songs = data.tracks.map(mapSpotifyItemToSong);
+  console.log(`spotify-service: Received ${songs.length} recommended tracks from Spotify.`);
   
+  // Spotify recommendations endpoint doesn't directly give a 'total'. 
+  // If we get 'limit' tracks, assume there might be more. Otherwise, this is all.
+  // This is a simplification; true pagination for recommendations is more complex.
   const total = songs.length === limit && songs.length > 0 ? songs.length + limit : songs.length; 
 
   return { songs, total };
@@ -222,8 +231,9 @@ export async function searchSpotifyTracksService(
   limit: number = 5,
   offset: number = 0
 ): Promise<{ songs: Song[]; total: number }> {
+  console.log("spotify-service: searchSpotifyTracksService called with query:", queryString, "limit:", limit, "offset:", offset);
   if (!queryString.trim()) {
-    console.warn("Spotify search query is empty. Returning no results.");
+    console.warn("spotify-service: Spotify search query is empty. Returning no results.");
     return { songs: [], total: 0 };
   }
 
@@ -237,21 +247,23 @@ export async function searchSpotifyTracksService(
   });
 
   const searchUrl = `${SPOTIFY_API_BASE}/search?${queryParams.toString()}`;
-  console.log(`Searching Spotify tracks with URL: ${searchUrl}`);
+  console.log(`spotify-service: Searching Spotify tracks with URL: ${searchUrl}`);
   const response = await fetch(searchUrl, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
   });
+  console.log(`spotify-service: Track Search API response status: ${response.status}`);
 
   if (!response.ok) {
     const errorBody = await response.text();
-    console.error('Spotify API Track Search Error:', response.status, errorBody);
+    console.error('spotify-service: Spotify API Track Search Error:', response.status, errorBody);
     throw new Error(`Spotify API track search failed: ${response.statusText} - ${errorBody}`);
   }
 
   const data: SpotifySearchResponse<SpotifyTrackItem> = await response.json();
   const songs = data.tracks?.items.map(mapSpotifyItemToSong) || [];
+  console.log(`spotify-service: Received ${songs.length} tracks from Spotify search, total available: ${data.tracks?.total || 0}.`);
 
   return { songs, total: data.tracks?.total || 0 };
 }
@@ -261,7 +273,7 @@ export async function searchSpotifyArtistsService(
   limit: number = 1 
 ): Promise<SpotifyArtist[]> {
   if (!artistName || !artistName.trim()) {
-    console.warn("Spotify artist search query is empty.");
+    console.warn("spotify-service: Spotify artist search query is empty.");
     return [];
   }
 
@@ -270,11 +282,11 @@ export async function searchSpotifyArtistsService(
 
   const cachedEntry = artistCache.get(normalizedArtistName);
   if (cachedEntry && (now - cachedEntry.timestamp < ARTIST_CACHE_DURATION)) {
-    console.log(`Returning cached Spotify artist data for: "${normalizedArtistName}"`);
+    console.log(`spotify-service: Returning cached Spotify artist data for: "${normalizedArtistName}"`);
     return cachedEntry.artists;
   }
 
-  console.log(`Searching Spotify for artist (normalized): "${normalizedArtistName}" (original: "${artistName}")`);
+  console.log(`spotify-service: Searching Spotify for artist (normalized): "${normalizedArtistName}" (original: "${artistName}")`);
   const token = await getClientCredentialsToken();
   const queryParams = new URLSearchParams({
     q: normalizedArtistName, 
@@ -283,21 +295,22 @@ export async function searchSpotifyArtistsService(
   });
 
   const searchUrl = `${SPOTIFY_API_BASE}/search?${queryParams.toString()}`;
-  console.log(`Searching Spotify artists with URL: ${searchUrl}`);
+  console.log(`spotify-service: Searching Spotify artists with URL: ${searchUrl}`);
   const response = await fetch(searchUrl, {
     headers: { Authorization: `Bearer ${token}` },
   });
+  console.log(`spotify-service: Artist Search API response status: ${response.status}`);
 
   if (!response.ok) {
     const errorBody = await response.text();
-    console.error('Spotify API Artist Search Error:', response.status, errorBody);
+    console.error('spotify-service: Spotify API Artist Search Error:', response.status, errorBody);
     return []; 
   }
   const data: SpotifySearchResponse<SpotifyArtist> = await response.json();
   const artists = data.artists?.items || [];
 
   artistCache.set(normalizedArtistName, { artists, timestamp: now });
-  console.log(`Fetched and cached ${artists.length} artists for: "${normalizedArtistName}"`);
+  console.log(`spotify-service: Fetched and cached ${artists.length} artists for: "${normalizedArtistName}"`);
   
   return artists;
 }
@@ -309,7 +322,7 @@ export async function searchSpotifyTrackService(
   limit: number = 1 
 ): Promise<SpotifyTrackItem[]> {
    if (!trackName.trim()) {
-    console.warn("Spotify track search query is empty.");
+    console.warn("spotify-service: Spotify track search query is empty.");
     return [];
   }
   const token = await getClientCredentialsToken();
@@ -326,17 +339,19 @@ export async function searchSpotifyTrackService(
   });
   
   const searchUrl = `${SPOTIFY_API_BASE}/search?${queryParams.toString()}`;
-  console.log(`Searching Spotify track with URL: ${searchUrl}`);
+  console.log(`spotify-service: Searching Spotify track details with URL: ${searchUrl}`);
   const response = await fetch(searchUrl, {
     headers: { Authorization: `Bearer ${token}` },
   });
+  console.log(`spotify-service: Track Detail Search API response status: ${response.status}`);
 
   if (!response.ok) {
     const errorBody = await response.text();
-    console.error('Spotify API Track Detail Search Error:', response.status, errorBody);
+    console.error('spotify-service: Spotify API Track Detail Search Error:', response.status, errorBody);
     return [];
   }
   const data: SpotifySearchResponse<SpotifyTrackItem> = await response.json();
+  console.log(`spotify-service: Found ${data.tracks?.items.length || 0} tracks for detail search.`);
   return data.tracks?.items || [];
 }
 
@@ -344,26 +359,27 @@ export async function searchSpotifyTrackService(
 export async function getAvailableGenreSeeds(): Promise<string[]> {
   const now = Date.now();
   if (availableGenresCache && genresCacheTimestamp && (now - genresCacheTimestamp < GENRES_CACHE_DURATION)) {
-    console.log("Returning cached Spotify genre seeds.");
+    console.log("spotify-service: Returning cached Spotify genre seeds.");
     return availableGenresCache;
   }
 
-  console.log("Fetching fresh Spotify genre seeds.");
+  console.log("spotify-service: Fetching fresh Spotify genre seeds.");
   const token = await getClientCredentialsToken();
   const genresUrl = `${SPOTIFY_API_BASE}/recommendations/available-genre-seeds`;
-  console.log(`Fetching available Spotify genre seeds from URL: ${genresUrl}`);
+  console.log(`spotify-service: Fetching available Spotify genre seeds from URL: ${genresUrl}`);
   const response = await fetch(genresUrl, {
     headers: { Authorization: `Bearer ${token}` },
   });
+  console.log(`spotify-service: Available Genre Seeds API response status: ${response.status}`);
 
   if (!response.ok) {
     const errorBody = await response.text();
-    console.error('Spotify API Available Genre Seeds Error:', response.status, errorBody);
+    console.error('spotify-service: Spotify API Available Genre Seeds Error:', response.status, errorBody);
     return availableGenresCache || []; 
   }
   const data: { genres: string[] } = await response.json();
   availableGenresCache = data.genres || [];
   genresCacheTimestamp = now;
-  console.log(`Fetched and cached ${availableGenresCache.length} genre seeds.`);
+  console.log(`spotify-service: Fetched and cached ${availableGenresCache.length} genre seeds.`);
   return availableGenresCache;
 }

@@ -17,10 +17,14 @@ interface FetchSpotifyTracksResult {
 
 export async function fetchSpotifyTracksAction(
   aiOutput: InterpretMusicalIntentOutput,
-  _formInput: FindYourVibeFormValues, // formInput might be less relevant now AI output is richer
+  _formInput: FindYourVibeFormValues, 
   limit: number = 5,
-  offset: number = 0 // offset is used for searchSpotifyTracksService
+  offset: number = 0 
 ): Promise<FetchSpotifyTracksResult> {
+  console.log("fetchSpotifyTracksAction: Received AI Output:", JSON.stringify(aiOutput));
+  console.log("fetchSpotifyTracksAction: Form Input (for context):", JSON.stringify(_formInput));
+  console.log("fetchSpotifyTracksAction: Limit:", limit, "Offset:", offset);
+
   try {
     const hasSeedTracks = aiOutput.seed_tracks && aiOutput.seed_tracks.length > 0;
     const hasSeedArtists = aiOutput.seed_artists && aiOutput.seed_artists.length > 0;
@@ -30,20 +34,17 @@ export async function fetchSpotifyTracksAction(
     const hasTargets = Object.keys(aiOutput).some(k => k.startsWith('target_') && aiOutput[k as keyof InterpretMusicalIntentOutput] !== undefined);
 
     if (hasSeeds || hasTargets) {
-      console.log("Fetching recommendations with seeds/targets:", JSON.stringify(aiOutput), "limit:", limit);
-      // The getSpotifyRecommendationsService doesn't use offset directly for its main logic.
+      console.log("fetchSpotifyTracksAction: Calling getSpotifyRecommendationsService with seeds/targets.");
       return await getSpotifyRecommendationsService(aiOutput, limit);
     } else if (aiOutput.fallbackSearchQuery) {
-      console.log("Fetching tracks with fallback search query:", aiOutput.fallbackSearchQuery, "limit:", limit, "offset:", offset);
+      console.log("fetchSpotifyTracksAction: Calling searchSpotifyTracksService with fallback query:", aiOutput.fallbackSearchQuery);
       return await searchSpotifyTracksService(aiOutput.fallbackSearchQuery, limit, offset);
     } else {
-      console.warn("AI provided no seeds, no targets, and no fallback query. Cannot fetch songs.");
+      console.warn("fetchSpotifyTracksAction: AI provided no seeds, no targets, and no fallback query. Cannot fetch songs.");
       return { songs: [], total: 0 };
     }
   } catch (error) {
     console.error("Error in fetchSpotifyTracksAction:", (error as Error).message, error);
-    // Consider if a more specific error should be thrown or returned
-    // For now, returning empty results on error.
     return { songs: [], total: 0 }; 
   }
 }
