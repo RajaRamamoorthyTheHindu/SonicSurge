@@ -157,31 +157,30 @@ export async function getSpotifyRecommendationsService(
   const token = await getClientCredentialsToken();
   const queryParams = new URLSearchParams();
 
+  let seedCount = 0;
   if (params.seed_artists && params.seed_artists.length > 0) {
     queryParams.append('seed_artists', params.seed_artists.slice(0, 5).join(','));
+    seedCount += params.seed_artists.length;
   }
   if (params.seed_genres && params.seed_genres.length > 0) {
     const validGenres = params.seed_genres.filter(g => typeof g === 'string' && g.trim() !== '');
     if (validGenres.length > 0) {
         queryParams.append('seed_genres', validGenres.slice(0, 5).join(','));
+        seedCount += validGenres.length;
     }
   }
   if (params.seed_tracks && params.seed_tracks.length > 0) {
     queryParams.append('seed_tracks', params.seed_tracks.slice(0, 5).join(','));
+    seedCount += params.seed_tracks.length;
   }
-
-  const currentSeedArtists = queryParams.get('seed_artists')?.split(',').filter(s => s && s.trim() !== '') || [];
-  const currentSeedGenres = queryParams.get('seed_genres')?.split(',').filter(g => g && g.trim() !== '') || [];
-  const currentSeedTracks = queryParams.get('seed_tracks')?.split(',').filter(t => t && t.trim() !== '') || [];
   
-  const totalSeeds = currentSeedArtists.length + currentSeedGenres.length + currentSeedTracks.length;
-  const hasTargets = Object.keys(params).some(k => k.startsWith('target_') && params[k as keyof InterpretMusicalIntentOutput] !== undefined);
+  const hasTargets = Object.keys(params).some(k => k.startsWith('target_') && params[k as keyof InterpretMusicalIntentOutput] !== undefined && params[k as keyof InterpretMusicalIntentOutput] !== "");
 
-  if (totalSeeds === 0 && !hasTargets) {
+  if (seedCount === 0 && !hasTargets) {
     console.warn("spotify-service: No seeds and no target parameters provided for Spotify recommendations. Returning empty results.");
     return { songs: [], total: 0 }; 
   }
-  if (totalSeeds === 0 && hasTargets) {
+  if (seedCount === 0 && hasTargets) {
     console.warn("spotify-service: Spotify recommendations called with target parameters but no seeds. Results may be broad or an error might occur from Spotify.");
   }
 
@@ -194,7 +193,10 @@ export async function getSpotifyRecommendationsService(
   if (params.target_mode) queryParams.append('target_mode', params.target_mode.toString());
   if (params.target_popularity) queryParams.append('target_popularity', params.target_popularity.toString());
   if (params.target_speechiness) queryParams.append('target_speechiness', params.target_speechiness.toString());
-  if (params.target_tempo) queryParams.append('target_tempo', params.target_tempo.toString());
+  // Only append target_tempo if it's a valid number
+  if (params.target_tempo && typeof params.target_tempo === 'number' && !isNaN(params.target_tempo)) {
+    queryParams.append('target_tempo', params.target_tempo.toString());
+  }
   if (params.target_time_signature) queryParams.append('target_time_signature', params.target_time_signature.toString());
   if (params.target_valence) queryParams.append('target_valence', params.target_valence.toString());
   
@@ -210,16 +212,18 @@ export async function getSpotifyRecommendationsService(
   if (!response.ok) {
     const errorBody = await response.text();
     console.error('spotify-service: Spotify Recommendations API Error:', response.status, errorBody, `Query: ${queryParams.toString()}`);
+    // If Spotify returns 400, it's often due to bad input (e.g., invalid seeds or target values)
+    if (response.status === 400) {
+        console.error("Spotify API returned 400 Bad Request. This often means the seeds or target parameters were invalid or incompatible.");
+        return { songs: [], total: 0 }; // Return empty to prevent app crash
+    }
     throw new Error(`Spotify API recommendations failed: ${response.statusText} - ${errorBody}`);
   }
 
   const data: SpotifyRecommendationsResponse = await response.json();
   const songs = data.tracks.map(mapSpotifyItemToSong);
-  console.log(`spotify-service: Received ${songs.length} recommended tracks from Spotify.`);
+  console.log(`spotify-service: Received ${songs.length} recommended tracks from Spotify. Raw tracks:`, data.tracks);
   
-  // Spotify recommendations endpoint doesn't directly give a 'total'. 
-  // If we get 'limit' tracks, assume there might be more. Otherwise, this is all.
-  // This is a simplification; true pagination for recommendations is more complex.
   const total = songs.length === limit && songs.length > 0 ? songs.length + limit : songs.length; 
 
   return { songs, total };
@@ -258,12 +262,16 @@ export async function searchSpotifyTracksService(
   if (!response.ok) {
     const errorBody = await response.text();
     console.error('spotify-service: Spotify API Track Search Error:', response.status, errorBody);
+    if (response.status === 400) {
+        console.error("Spotify API returned 400 Bad Request for search. This might mean the query string was malformed.");
+        return { songs: [], total: 0 };
+    }
     throw new Error(`Spotify API track search failed: ${response.statusText} - ${errorBody}`);
   }
 
   const data: SpotifySearchResponse<SpotifyTrackItem> = await response.json();
   const songs = data.tracks?.items.map(mapSpotifyItemToSong) || [];
-  console.log(`spotify-service: Received ${songs.length} tracks from Spotify search, total available: ${data.tracks?.total || 0}.`);
+  console.log(`spotify-service: Received ${songs.length} tracks from Spotify search, total available: ${data.tracks?.total || 0}. Raw items:`, data.tracks?.items);
 
   return { songs, total: data.tracks?.total || 0 };
 }
@@ -351,7 +359,7 @@ export async function searchSpotifyTrackService(
     return [];
   }
   const data: SpotifySearchResponse<SpotifyTrackItem> = await response.json();
-  console.log(`spotify-service: Found ${data.tracks?.items.length || 0} tracks for detail search.`);
+  console.log(`spotify-service: Found ${data.tracks?.items.length || 0} tracks for detail search. Raw items:`, data.tracks?.items);
   return data.tracks?.items || [];
 }
 
@@ -383,3 +391,4 @@ export async function getAvailableGenreSeeds(): Promise<string[]> {
   console.log(`spotify-service: Fetched and cached ${availableGenresCache.length} genre seeds.`);
   return availableGenresCache;
 }
+

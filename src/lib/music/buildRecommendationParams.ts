@@ -6,9 +6,8 @@ export interface MoodInput {
   selectedMoodName?: string;
   energy?: number; // 0.0–1.0 (derived from 0-100 slider)
   valence?: number; // 0.0–1.0 (derived from 0-100 slider)
-  tempo?: number; // BPM (e.g., 60-200)
+  tempo?: number | string; // BPM (e.g., 60-200) - Can be string from input
   languages?: string[]; // e.g., ["Tamil", "English"]
-  // Advanced song/artist/instrument filters are handled by AI if this composer isn't used.
 }
 
 interface MoodConfig {
@@ -26,29 +25,25 @@ interface MoodConfig {
 
 const moods: MoodConfig[] = moodsData;
 
-// Simple language to Spotify genre seed mapping
-// Ensure these are valid Spotify genres.
-// This is a basic example; a more comprehensive mapping or AI assistance might be needed for broader language support.
 const languageToGenreMap: Record<string, string | string[]> = {
   'Spanish': 'latin',
-  'French': 'french-pop', // 'french' is a broad Spotify genre
-  'German': 'german-pop', // 'german' is a broad Spotify genre
-  'Italian': 'italian-pop', // 'italian' is a broad Spotify genre
-  'Portuguese': 'mpb', // Musica Popular Brasileira, or 'portuguese-music'
-  'Japanese': 'j-pop', // or 'j-rock', 'j-dance'
+  'French': 'french-pop',
+  'German': 'german-pop',
+  'Italian': 'italian-pop',
+  'Portuguese': 'mpb',
+  'Japanese': 'j-pop',
   'Korean': 'k-pop',
-  'Hindi': 'indian', // or 'bollywood'
+  'Hindi': 'indian',
   'Tamil': 'tamil',
   'Arabic': 'arabic',
-  'Turkish': 'turkish-pop', // 'turkish' is broad
-  'Swedish': 'swedish-pop', // 'swedish' is broad
-  // Add more mappings as needed
+  'Turkish': 'turkish-pop',
+  'Swedish': 'swedish-pop',
 };
 
 export function buildSpotifyParamsFromMoodInput(
   moodInput: MoodInput
 ): Omit<InterpretMusicalIntentOutput, 'seed_tracks' | 'seed_artists' | 'fallbackSearchQuery'> {
-  const params: Omit<InterpretMusicalIntentOutput, 'seed_tracks' | 'seed_artists' | 'fallbackSearchQuery'> & { seed_genres: string[] } = {
+  const params: Omit<InterpretMusicalIntentOutput, 'seed_tracks' | 'seed_artists' | 'fallbackSearchQuery'> & { seed_genres?: string[], target_tempo?: number } = {
     seed_genres: [],
   };
 
@@ -75,39 +70,39 @@ export function buildSpotifyParamsFromMoodInput(
     }
   }
 
-  // Override with slider values if provided
   if (moodInput.energy !== undefined) {
     params.target_energy = moodInput.energy;
   }
   if (moodInput.valence !== undefined) {
     params.target_valence = moodInput.valence;
   }
-  if (moodInput.tempo !== undefined) {
-    params.target_tempo = moodInput.tempo;
+  // Ensure tempo is a number and not an empty string or invalid
+  if (moodInput.tempo !== undefined && moodInput.tempo !== "" && !isNaN(Number(moodInput.tempo))) {
+    params.target_tempo = Number(moodInput.tempo);
+  } else if (params.target_tempo === undefined && moodInput.tempo === "") { // if moodInput.tempo is explicitly empty, remove default
+      delete params.target_tempo;
   }
 
-  // Add language-based genres
+
   if (moodInput.languages) {
     moodInput.languages.forEach((lang) => {
       const genreSeeds = languageToGenreMap[lang];
       if (genreSeeds) {
         if (Array.isArray(genreSeeds)) {
-          params.seed_genres.push(...genreSeeds);
+          (params.seed_genres = params.seed_genres || []).push(...genreSeeds);
         } else {
-          params.seed_genres.push(genreSeeds);
+          (params.seed_genres = params.seed_genres || []).push(genreSeeds);
         }
       }
     });
   }
 
-  // Deduplicate genres and ensure a reasonable limit (Spotify allows up to 5 total seeds)
-  // This builder only handles genre seeds; track/artist seeds would be added by AI if that path is taken.
-  if (params.seed_genres.length > 0) {
+  if (params.seed_genres && params.seed_genres.length > 0) {
     params.seed_genres = [...new Set(params.seed_genres)].slice(0, 5);
+  } else {
+    delete params.seed_genres; // Remove if empty
   }
 
-
-  // Remove undefined properties
   Object.keys(params).forEach(keyStr => {
     const key = keyStr as keyof typeof params;
     if (params[key] === undefined) {
@@ -115,13 +110,9 @@ export function buildSpotifyParamsFromMoodInput(
     }
   });
   
-  if (params.seed_genres.length === 0) {
-    // If after all this, we have no genre seeds, remove the empty array.
-    // The caller (page.tsx) will then decide if it needs to use a fallback AI or default.
+  if (params.seed_genres && params.seed_genres.length === 0) {
     delete params.seed_genres;
   }
 
-
   return params;
 }
-    
