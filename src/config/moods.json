@@ -10,7 +10,7 @@
     "name": "chill_relax",
     "displayName": "Chill & Relax",
     "seed_genres": ["chill", "ambient", "acoustic"],
-    "defaults": { "target_energy": 0.3, "target_valence": 0.5, "target_danceability": 0.2 }
+    "defaults": { "target_energy": 0.3, "target_valence": 0.5, "target_danceability": 0.2, "target_instrumentalness": 0.4 }
   },
   {
     "name": "energetic_workout",
@@ -22,13 +22,13 @@
     "name": "focused_study",
     "displayName": "Focused Study",
     "seed_genres": ["classical", "ambient", "instrumental", "study"],
-    "defaults": { "target_energy": 0.2, "target_valence": 0.3, "target_instrumentalness": 0.8 }
+    "defaults": { "target_energy": 0.2, "target_valence": 0.3, "target_instrumentalness": 0.8, "target_tempo": 100 }
   },
   {
     "name": "romantic_evening",
     "displayName": "Romantic Evening",
     "seed_genres": ["r-n-b", "soul", "jazz", "romance"],
-    "defaults": { "target_energy": 0.4, "target_valence": 0.7 }
+    "defaults": { "target_energy": 0.4, "target_valence": 0.7, "target_loudness": -8 }
   },
   {
     "name": "road_trip",
@@ -39,56 +39,55 @@
   {
     "name": "melancholy_reflective",
     "displayName": "Melancholy & Reflective",
-    "seed_genres": ["sad", "acoustic", "indie-pop", "singer-songwriter"],
-    "defaults": { "target_energy": 0.3, "target_valence": 0.2 }
+    "seed_genres": ["sad", "acoustic", "indie-pop"],
+    "defaults": { "target_energy": 0.3, "target_valence": 0.2, "target_tempo": 90 }
   },
   {
     "name": "party_mode",
     "displayName": "Party Mode",
     "seed_genres": ["party", "hip-hop", "dance", "pop"],
-    "defaults": { "target_energy": 0.8, "target_valence": 0.7, "target_danceability": 0.8 }
+    "defaults": { "target_energy": 0.8, "target_valence": 0.7, "target_danceability": 0.85, "target_popularity": 70 }
   },
   {
     "name": "late_night_drive",
     "displayName": "Late Night Drive",
     "seed_genres": ["electronic", "synthwave", "chillwave", "trip-hop"],
-    "defaults": { "target_energy": 0.5, "target_valence": 0.4 }
+    "defaults": { "target_energy": 0.5, "target_valence": 0.4, "target_tempo": 110 }
   },
   {
-    "name": "folk_acoustic",
-    "displayName": "Folk & Acoustic",
+    "name": "folk_acoustic_storytelling",
+    "displayName": "Folk & Acoustic Storytelling",
     "seed_genres": ["folk", "acoustic", "singer-songwriter"],
-    "defaults": { "target_energy": 0.4, "target_valence": 0.6, "target_instrumentalness": 0.3 }
+    "defaults": { "target_energy": 0.4, "target_valence": 0.6, "target_instrumentalness": 0.1, "target_speechiness": 0.05 }
   },
   {
-    "name": "jazz_lounge",
-    "displayName": "Jazz Lounge",
+    "name": "jazz_lounge_sophisticated",
+    "displayName": "Jazz Lounge (Sophisticated)",
     "seed_genres": ["jazz", "bossanova", "lounge"],
-    "defaults": { "target_energy": 0.4, "target_valence": 0.5, "target_instrumentalness": 0.5 }
+    "defaults": { "target_energy": 0.4, "target_valence": 0.5, "target_instrumentalness": 0.6, "target_tempo": 100 }
   },
   {
-    "name": "rock_anthem",
-    "displayName": "Rock Anthems",
+    "name": "rock_anthem_stadium",
+    "displayName": "Rock Anthems (Stadium)",
     "seed_genres": ["rock", "hard-rock", "alt-rock"],
-    "defaults": { "target_energy": 0.8, "target_valence": 0.5 }
+    "defaults": { "target_energy": 0.8, "target_valence": 0.5, "target_loudness": -5 }
   },
   {
-    "name": "reggae_vibes",
-    "displayName": "Reggae Vibes",
+    "name": "reggae_sunshine_vibes",
+    "displayName": "Reggae Sunshine Vibes",
     "seed_genres": ["reggae", "dancehall", "dub"],
-    "defaults": { "target_energy": 0.6, "target_valence": 0.8, "target_danceability": 0.7 }
+    "defaults": { "target_energy": 0.6, "target_valence": 0.8, "target_danceability": 0.75 }
   },
   {
-    "name": "classical_calm",
-    "displayName": "Classical Calm",
-    "seed_genres": ["classical", "piano", "study"],
-    "defaults": { "target_energy": 0.2, "target_valence": 0.4, "target_instrumentalness": 0.9 }
+    "name": "classical_epic_cinematic",
+    "displayName": "Classical (Epic & Cinematic)",
+    "seed_genres": ["classical", "soundtrack", "epicore"],
+    "defaults": { "target_energy": 0.6, "target_valence": 0.3, "target_instrumentalness": 0.9 }
   },
   {
-    "name": "indie_alternative",
-    "displayName": "Indie & Alternative",
+    "name": "indie_alternative_quirky",
+    "displayName": "Indie & Alternative (Quirky)",
     "seed_genres": ["indie", "indie-pop", "alt-rock", "alternative"],
-    "defaults": { "target_energy": 0.6, "target_valence": 0.5 }
+    "defaults": { "target_energy": 0.6, "target_valence": 0.55, "target_danceability": 0.5 }
   }
 ]
-    

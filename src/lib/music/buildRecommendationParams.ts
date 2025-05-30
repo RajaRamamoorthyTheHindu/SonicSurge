@@ -1,6 +1,6 @@
 
 import type { InterpretMusicalIntentOutput } from '@/types';
-import moodsData from '@/config/moods.json';
+import moodsConfigData from '@/config/moods.json'; // Renamed to avoid conflict with moods variable
 
 export interface MoodInput {
   selectedMoodName?: string;
@@ -13,35 +13,40 @@ export interface MoodInput {
 interface MoodConfig {
   name: string;
   displayName: string;
-  seed_genres: string[];
-  defaults: {
+  seed_genres?: string[]; // Optional to allow moods with no genre seeds
+  defaults?: { // All defaults are optional
     target_energy?: number;
     target_valence?: number;
     target_danceability?: number;
     target_instrumentalness?: number;
-    target_tempo?: number; // Ensure this is treated as a number
+    target_acousticness?: number;
+    target_liveness?: number;
+    target_loudness?: number;
+    target_mode?: number;
+    target_popularity?: number;
+    target_speechiness?: number;
+    target_tempo?: number;
+    target_time_signature?: number;
   };
 }
 
-const moods: MoodConfig[] = moodsData;
+const moods: MoodConfig[] = moodsConfigData as MoodConfig[];
 
-// Ensure languageToGenreMap values are valid Spotify genres
+// Ensure languageToGenreMap values are valid Spotify genres (user must verify this mapping)
 const languageToGenreMap: Record<string, string | string[]> = {
-  'Spanish': 'latin', // "latin" is a broad and valid genre
-  'French': 'french-pop', // "french-pop" or just "french" if more general
-  'German': 'german-pop', // "german-pop" or "german"
-  'Japanese': 'j-pop', // "j-pop" is valid
-  'Korean': 'k-pop', // "k-pop" is valid
-  'Hindi': 'indian', // "indian" is broad, consider "bollywood" if more specific
-  'Tamil': 'tamil', // "tamil" is valid
-  // Add more common languages and their corresponding Spotify genres
+  'Spanish': 'latin',
+  'French': 'french-pop',
+  'German': 'german-pop',
+  'Japanese': 'j-pop',
+  'Korean': 'k-pop',
+  'Hindi': 'indian',
+  'Tamil': 'tamil',
 };
 
 export function buildSpotifyParamsFromMoodInput(
   moodInput: MoodInput
 ): Omit<InterpretMusicalIntentOutput, 'seed_tracks' | 'seed_artists' | 'fallbackSearchQuery'> {
-  // Initialize params, ensuring target_tempo is typed as number | undefined
-  const params: Omit<InterpretMusicalIntentOutput, 'seed_tracks' | 'seed_artists' | 'fallbackSearchQuery'> & { seed_genres?: string[]; target_tempo?: number } = {
+  const params: Omit<InterpretMusicalIntentOutput, 'seed_tracks' | 'seed_artists' | 'fallbackSearchQuery'> & { seed_genres?: string[] } = {
     seed_genres: [],
   };
 
@@ -50,93 +55,86 @@ export function buildSpotifyParamsFromMoodInput(
   );
 
   if (selectedMoodConfig) {
-    // Apply defaults from selected mood
-    params.seed_genres = [...selectedMoodConfig.seed_genres];
-    if (selectedMoodConfig.defaults?.target_energy !== undefined) {
-      params.target_energy = selectedMoodConfig.defaults.target_energy;
+    // Apply seeds and defaults from selected mood
+    if (selectedMoodConfig.seed_genres) {
+      params.seed_genres = [...selectedMoodConfig.seed_genres];
     }
-    if (selectedMoodConfig.defaults?.target_valence !== undefined) {
-      params.target_valence = selectedMoodConfig.defaults.target_valence;
-    }
-    if (selectedMoodConfig.defaults?.target_danceability !== undefined) {
-      params.target_danceability = selectedMoodConfig.defaults.target_danceability;
-    }
-    if (selectedMoodConfig.defaults?.target_instrumentalness !== undefined) {
-      params.target_instrumentalness = selectedMoodConfig.defaults.target_instrumentalness;
-    }
-    // Default tempo - ensure it's a number
-    if (selectedMoodConfig.defaults?.target_tempo !== undefined && !isNaN(Number(selectedMoodConfig.defaults.target_tempo))) {
-      params.target_tempo = Number(selectedMoodConfig.defaults.target_tempo);
+    if (selectedMoodConfig.defaults) {
+      Object.assign(params, selectedMoodConfig.defaults);
     }
   }
 
-  // Override with user slider/input values
-  if (moodInput.energy !== undefined) {
-    params.target_energy = moodInput.energy;
+  // Override with user slider/input values, ensuring they are valid numbers and within typical ranges
+  if (moodInput.energy !== undefined && !isNaN(moodInput.energy)) {
+    params.target_energy = Math.max(0, Math.min(1, moodInput.energy)); // Clamp 0-1
   }
-  if (moodInput.valence !== undefined) {
-    params.target_valence = moodInput.valence;
+  if (moodInput.valence !== undefined && !isNaN(moodInput.valence)) {
+    params.target_valence = Math.max(0, Math.min(1, moodInput.valence)); // Clamp 0-1
   }
 
-  // Handle tempo input:
-  // If user provided a valid number for tempo, use it.
-  // If user explicitly cleared the tempo input (it's an empty string), ensure target_tempo is removed.
-  // If moodInput.tempo is undefined (user hasn't touched the field), the default (if any) remains.
-  if (moodInput.tempo !== undefined) { // Check if tempo field was interacted with at all
+  if (moodInput.tempo !== undefined) {
     if (typeof moodInput.tempo === 'string' && moodInput.tempo.trim() === "") {
-      // User cleared the input or it was an empty string
       delete params.target_tempo;
-    } else if (!isNaN(Number(moodInput.tempo)) && String(moodInput.tempo).trim() !== "") {
-      // User provided a valid number (or string coercible to number)
+    } else {
       const numericTempo = Number(moodInput.tempo);
-      if (numericTempo >= 40 && numericTempo <= 240) { // Spotify typical tempo range
-         params.target_tempo = numericTempo;
+      if (!isNaN(numericTempo) && numericTempo >= 40 && numericTempo <= 240) {
+        params.target_tempo = numericTempo;
       } else {
-        // Tempo out of typical range, might be better to omit or log a warning
-        // For now, we'll omit if out of a reasonable range to avoid bad requests
+        // Invalid tempo or out of range, so we remove it to avoid sending bad data
         delete params.target_tempo;
-        console.warn(`Tempo value ${numericTempo} is outside typical range (40-240 BPM), omitting target_tempo.`);
+        if (String(moodInput.tempo).trim() !== "") { // Log only if it wasn't intentionally empty
+            console.warn(`buildSpotifyParams: Tempo value '${moodInput.tempo}' is invalid or out of range (40-240 BPM), omitting target_tempo.`);
+        }
       }
     }
-    // If moodInput.tempo is defined but not a valid number and not an empty string,
-    // it's an invalid input, so we don't set params.target_tempo, relying on default or undefined.
   }
-
 
   // Language to genre mapping
   if (moodInput.languages && moodInput.languages.length > 0) {
     moodInput.languages.forEach((lang) => {
       const genreSeedsToAdd = languageToGenreMap[lang];
       if (genreSeedsToAdd) {
+        const currentGenres = params.seed_genres || [];
         if (Array.isArray(genreSeedsToAdd)) {
-          (params.seed_genres = params.seed_genres || []).push(...genreSeedsToAdd);
+          params.seed_genres = [...currentGenres, ...genreSeedsToAdd];
         } else {
-          (params.seed_genres = params.seed_genres || []).push(genreSeedsToAdd);
+          params.seed_genres = [...currentGenres, genreSeedsToAdd];
         }
       }
     });
   }
 
-  // Clean up seed_genres (unique, max 5)
+  // Clean up seed_genres (unique, non-empty, max 5)
   if (params.seed_genres && params.seed_genres.length > 0) {
-    params.seed_genres = [...new Set(params.seed_genres)].filter(g => g.trim() !== ''); // Remove empty strings after unique
+    params.seed_genres = [...new Set(params.seed_genres.map(g => g.trim()).filter(g => g !== ''))];
     if (params.seed_genres.length > 5) {
-        params.seed_genres = params.seed_genres.slice(0,5);
+      console.warn(`buildSpotifyParams: More than 5 seed genres generated (${params.seed_genres.length}), truncating to 5.`);
+      params.seed_genres = params.seed_genres.slice(0, 5);
     }
     if (params.seed_genres.length === 0) {
-        delete params.seed_genres;
+      delete params.seed_genres;
     }
   } else {
     delete params.seed_genres;
   }
 
-  // Final cleanup for any undefined properties
-  Object.keys(params).forEach(keyStr => {
-    const key = keyStr as keyof typeof params;
-    if (params[key] === undefined) {
+  // Final cleanup for any undefined properties on params that might have been set from defaults
+  // and then overridden to undefined or invalid values.
+  // Spotify expects target parameters to be numbers if present.
+  (Object.keys(params) as Array<keyof typeof params>).forEach(key => {
+    if (key.startsWith('target_') && (params[key] === undefined || params[key] === null || (typeof params[key] === 'string' && (params[key] as string).trim() === ""))) {
       delete params[key];
     }
+    // Specific numeric checks for targets (though spotify-service will do final validation)
+    if (key === 'target_tempo' && (isNaN(Number(params[key])) || Number(params[key]) < 40 || Number(params[key]) > 240)) {
+        delete params[key];
+    }
+    if (['target_energy', 'target_valence', 'target_danceability', 'target_instrumentalness', 'target_acousticness', 'target_liveness', 'target_speechiness'].includes(key)) {
+        if (isNaN(Number(params[key])) || Number(params[key]) < 0 || Number(params[key]) > 1) {
+            delete params[key];
+        }
+    }
   });
-  
+
   return params;
 }
