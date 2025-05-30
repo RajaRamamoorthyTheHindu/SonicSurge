@@ -1,4 +1,4 @@
-
+// src/app/page.tsx
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -8,7 +8,7 @@ import { FindYourVibe, FormValues as FindYourVibeFormValues } from '@/components
 import { SonicMatches } from '@/components/sonic-matches';
 import type { Song } from '@/types';
 import type { InterpretMusicalIntentInput, InterpretMusicalIntentOutput as AIOutput } from '@/ai/flows/interpret-musical-intent';
-import type { AnalyzeSocialProfileOutput, ProfileAnalysisOutput } from '@/ai/flows/analyze-social-profile'; // Corrected ProfileAnalysisOutput import
+import type { AnalyzeSocialProfileOutput } from '@/ai/flows/analyze-social-profile';
 import type { InterpretProfileForMusicInput } from '@/ai/flows/interpret-profile-for-music';
 import { interpretMusicalIntent } from '@/ai/flows/interpret-musical-intent';
 import { analyzeSocialProfile } from '@/ai/flows/analyze-social-profile';
@@ -16,7 +16,8 @@ import { interpretProfileAnalysisForMusic } from '@/ai/flows/interpret-profile-f
 import { fetchSpotifyTracksAction } from '@/actions/fetch-spotify-tracks-action';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { buildSpotifyParamsFromMoodInput } from '@/lib/music/buildRecommendationParams';
+// import { buildSpotifyParamsFromMoodInput } from '@/lib/music/buildRecommendationParams'; // No longer called directly
+import moodsData from '@/config/moods.json'; // Import moodsData to get associated keywords
 
 const SONGS_PER_PAGE = 5;
 
@@ -33,9 +34,10 @@ export default function Home() {
   const [currentOffset, setCurrentOffset] = useState(0);
   const [totalSongsAvailable, setTotalSongsAvailable] = useState(0);
 
-  const [profileAnalysisResult, setProfileAnalysisResult] = useState<AnalyzeSocialProfileOutput | null>(null); // Use AnalyzeSocialProfileOutput type
+  const [profileAnalysisResult, setProfileAnalysisResult] = useState<AnalyzeSocialProfileOutput | null>(null);
   const [isProfileAnalysisLoading, setIsProfileAnalysisLoading] = useState(false);
   const [activeSearchType, setActiveSearchType] = useState<'mood' | 'profile' | 'structured_mood' | null>(null);
+  const [currentMoodDescriptionForDisplay, setCurrentMoodDescriptionForDisplay] = useState<string | undefined>(undefined);
 
 
   const handleAnalyzeProfile = useCallback(async (url: string) => {
@@ -44,7 +46,7 @@ export default function Home() {
       return;
     }
     setIsProfileAnalysisLoading(true);
-    setProfileAnalysisResult(null); // Clear previous results
+    setProfileAnalysisResult(null);
     console.log("page.tsx: handleAnalyzeProfile - Starting analysis for URL:", url);
     try {
       const analysis = await analyzeSocialProfile({ socialProfileUrl: url });
@@ -76,9 +78,9 @@ export default function Home() {
 
   const handleSearchSubmit = async (
     formValuesFromForm: FindYourVibeFormValues,
-    searchType: 'mood' | 'profile' | 'structured_mood'
+    searchType: 'mood' | 'profile' | 'structured_mood' // searchType from FindYourVibe
   ) => {
-    console.log("page.tsx: handleSearchSubmit called with formValues:", JSON.stringify(formValuesFromForm), "searchType:", searchType);
+    console.log("page.tsx: handleSearchSubmit called with formValues:", JSON.stringify(formValuesFromForm, null, 2), "searchType:", searchType);
     setIsLoadingSearch(true);
     setRecommendedSongs([]);
     setCurrentOffset(0);
@@ -87,49 +89,15 @@ export default function Home() {
     setAiInterpretation(null);
     setCurrentFullFormValues(formValuesFromForm); 
     setActiveSearchType(searchType);
+    setCurrentMoodDescriptionForDisplay(formValuesFromForm.moodDescription || formValuesFromForm.moodComposerParams?.selectedMoodName?.replace(/_/g, ' '));
+
 
     let finalAiOutput: AIOutput | null = null;
 
     try {
-      if (searchType === 'structured_mood' && formValuesFromForm.moodComposerParams) {
-        console.log("page.tsx: Structured mood path. Params:", JSON.stringify(formValuesFromForm.moodComposerParams));
-        const spotifyParams = buildSpotifyParamsFromMoodInput(formValuesFromForm.moodComposerParams);
-        
-        const hasSeeds = spotifyParams.seed_genres && spotifyParams.seed_genres.length > 0;
-        const hasTargets = Object.keys(spotifyParams).some(k => k.startsWith('target_') && spotifyParams[k as keyof typeof spotifyParams] !== undefined);
-
-        if (hasSeeds || hasTargets) {
-             finalAiOutput = {
-                seed_tracks: undefined, 
-                seed_artists: undefined, 
-                ...spotifyParams 
-             };
-        } else {
-            const fallbackQuery = formValuesFromForm.moodComposerParams.selectedMoodName 
-                                     ? `music for ${formValuesFromForm.moodComposerParams.selectedMoodName.replace(/_/g, ' ')}` 
-                                     : "popular music";
-            console.log("page.tsx: Structured mood - No seeds/targets from builder, using fallback:", fallbackQuery);
-            finalAiOutput = { 
-                fallbackSearchQuery: fallbackQuery
-            };
-        }
-        console.log("page.tsx: Structured mood - finalAiOutput for Spotify:", JSON.stringify(finalAiOutput));
-
-      } else if (searchType === 'mood' && formValuesFromForm.moodDescription) {
-        console.log("page.tsx: Free-text mood path. Description:", formValuesFromForm.moodDescription);
-        const aiInput: InterpretMusicalIntentInput = {
-          moodDescription: formValuesFromForm.moodDescription,
-          songName: formValuesFromForm.songName,
-          instrumentTags: formValuesFromForm.instrumentTags,
-        };
-        console.log("page.tsx: Calling interpretMusicalIntent with input:", JSON.stringify(aiInput));
-        finalAiOutput = await interpretMusicalIntent(aiInput);
-        console.log("page.tsx: Free-text mood - finalAiOutput from interpretMusicalIntent:", JSON.stringify(finalAiOutput));
-
-      } else if (searchType === 'profile' && formValuesFromForm.socialProfileUrl) {
+      if (searchType === 'profile' && formValuesFromForm.socialProfileUrl) {
         console.log("page.tsx: Social profile path. URL:", formValuesFromForm.socialProfileUrl);
         let currentAnalysis = profileAnalysisResult;
-        // Re-analyze if URL changed or no current analysis
         if (!currentAnalysis || formValuesFromForm.socialProfileUrl !== currentAnalysis.sourceUrl) {
             setIsProfileAnalysisLoading(true); 
             try {
@@ -139,9 +107,9 @@ export default function Home() {
                 console.log("page.tsx: Social profile - Analysis result:", JSON.stringify(currentAnalysis));
             } catch(profileError) {
                 let message = 'Failed to analyze social profile during search.';
-                if (profileError instanceof Error) message = profileError.message;
-                else if (typeof profileError === 'string') message = profileError;
-                else if (typeof profileError === 'object' && profileError !== null && 'message' in profileError && typeof (profileError as any).message === 'string') message = (profileError as any).message;
+                 if (profileError instanceof Error) message = profileError.message;
+                 else if (typeof profileError === 'string') message = profileError;
+                 else if (typeof profileError === 'object' && profileError !== null && 'message' in profileError && typeof (profileError as any).message === 'string') message = (profileError as any).message;
                 console.error("page.tsx: Social profile - Error re-analyzing profile:", message, profileError);
                 toast({ title: "Profile Analysis Error", description: message, variant: "destructive" });
                 currentAnalysis = { sourceUrl: formValuesFromForm.socialProfileUrl, keywords: [], location: '', languages: [] }; 
@@ -155,49 +123,71 @@ export default function Home() {
           songName: formValuesFromForm.songName,
           instrumentTags: formValuesFromForm.instrumentTags,
         };
-        console.log("page.tsx: Calling interpretProfileAnalysisForMusic with input:", JSON.stringify(profileInterpretInput));
+        console.log("page.tsx: Calling interpretProfileAnalysisForMusic with input:", JSON.stringify(profileInterpretInput, null, 2));
         finalAiOutput = await interpretProfileAnalysisForMusic(profileInterpretInput);
         console.log("page.tsx: Social profile - finalAiOutput from interpretProfileAnalysisForMusic:", JSON.stringify(finalAiOutput));
+
+      } else if (searchType === 'mood' || searchType === 'structured_mood') {
+        // Unified mood path - always call interpretMusicalIntent AI
+        console.log("page.tsx: Unified Mood path (mood or structured_mood).");
+        
+        const aiInput: Partial<InterpretMusicalIntentInput> = {
+            moodDescription: formValuesFromForm.moodDescription,
+            songName: formValuesFromForm.songName,
+            instrumentTags: formValuesFromForm.instrumentTags,
+        };
+
+        if (formValuesFromForm.moodComposerParams) {
+            const moodProfile = moodsData.find(m => m.name === formValuesFromForm.moodComposerParams?.selectedMoodName);
+            aiInput.moodComposerSelections = {
+                selectedMoodDisplayName: moodProfile?.displayName,
+                energy: formValuesFromForm.moodComposerParams.energy,
+                valence: formValuesFromForm.moodComposerParams.valence,
+                tempo: formValuesFromForm.moodComposerParams.tempo ? Number(formValuesFromForm.moodComposerParams.tempo) : undefined,
+                languages: formValuesFromForm.moodComposerParams.languages,
+                associatedKeywords: moodProfile?.search_keywords || [],
+            };
+        }
+        
+        console.log("page.tsx: Calling interpretMusicalIntent with input:", JSON.stringify(aiInput, null, 2));
+        finalAiOutput = await interpretMusicalIntent(aiInput as InterpretMusicalIntentInput);
+        console.log("page.tsx: Unified Mood - finalAiOutput from interpretMusicalIntent:", JSON.stringify(finalAiOutput));
+
       } else {
+        // This case should ideally not be reached if FindYourVibe ensures one primary input is present
         toast({ title: "Invalid Search", description: "Please provide input for the selected search method.", variant: "destructive" });
-        console.log("page.tsx: Invalid search type or missing primary input for active tab.");
+        console.warn("page.tsx: Invalid search type or missing primary input. searchType:", searchType, "formValues:", formValuesFromForm);
         setIsLoadingSearch(false);
         setShowResults(true); 
         return;
       }
 
       // Fallback if AI output is not actionable
-      if (!finalAiOutput || 
-          (!finalAiOutput.seed_tracks?.length &&
-           !finalAiOutput.seed_artists?.length &&
-           !finalAiOutput.seed_genres?.length &&
-           !Object.keys(finalAiOutput).some(k => k.startsWith('target_') && finalAiOutput[k as keyof AIOutput] !== undefined) &&
-           !finalAiOutput.fallbackSearchQuery)
-      ) {
-          console.warn("page.tsx: AI output was null or not actionable. Constructing a generic fallback.", finalAiOutput);
+      if (!finalAiOutput || !finalAiOutput.fallbackSearchQuery) {
+          console.warn("page.tsx: AI output was null or did not contain a fallbackSearchQuery. Constructing a generic fallback.", finalAiOutput);
           let fallback = "popular music";
-          if (searchType === 'mood' && formValuesFromForm.moodDescription) {
+          if (formValuesFromForm.moodDescription) {
               fallback = `music for ${formValuesFromForm.moodDescription}`;
-          } else if (searchType === 'structured_mood' && formValuesFromForm.moodComposerParams?.selectedMoodName) {
-              fallback = `music for ${formValuesFromForm.moodComposerParams.selectedMoodName.replace(/_/g, ' ')}`;
-          } else if (searchType === 'profile' && (formValuesFromForm.songName || formValuesFromForm.instrumentTags)) {
-              fallback = `music like ${formValuesFromForm.songName || ''} with ${formValuesFromForm.instrumentTags || ''}`.trim();
+          } else if (formValuesFromForm.moodComposerParams?.selectedMoodName) {
+              const moodProfile = moodsData.find(m => m.name === formValuesFromForm.moodComposerParams?.selectedMoodName);
+              fallback = `music for ${moodProfile?.displayName || formValuesFromForm.moodComposerParams.selectedMoodName.replace(/_/g, ' ')}`;
+          } else if (formValuesFromForm.songName || formValuesFromForm.instrumentTags) {
+              fallback = `music like ${formValuesFromForm.songName || ''} with ${formValuesFromForm.instrumentTags || ''}`.trim() || "popular music";
           }
           finalAiOutput = { fallbackSearchQuery: fallback };
       }
 
       console.log("page.tsx: Final AI Output before loading songs:", JSON.stringify(finalAiOutput));
-      setAiInterpretation(finalAiOutput); // Set AI interpretation for display
+      setAiInterpretation(finalAiOutput);
 
-      if (finalAiOutput) { // We ensure finalAiOutput is always set now
-        console.log("page.tsx: AI output is considered actionable. Calling loadSongs.");
+      if (finalAiOutput?.fallbackSearchQuery) {
+        console.log("page.tsx: AI output has fallbackSearchQuery. Calling loadSongs.");
         await loadSongs(finalAiOutput, formValuesFromForm, 0, true);
       } else {
-        // This case should ideally not be reached due to the fallback logic above
-        console.error("page.tsx: UNEXPECTED - finalAiOutput is still null/undefined after fallback logic.");
+        console.error("page.tsx: UNEXPECTED - finalAiOutput is null or missing fallbackSearchQuery after fallback logic.");
         toast({
           title: 'Could not interpret intent',
-          description: "The AI could not determine specific recommendations or a search query. Please try rephrasing or adding more details.",
+          description: "The AI could not determine a search query. Please try rephrasing or adding more details.",
           variant: 'destructive',
         });
         setRecommendedSongs([]);
@@ -234,7 +224,7 @@ export default function Home() {
     if (!isNewSearch) {
       setIsLoadingMore(true);
     }
-    console.log("page.tsx: loadSongs - START. AI output:", JSON.stringify(aiOutputToUse), "Offset:", offsetToLoad, "IsNewSearch:", isNewSearch);
+    console.log("page.tsx: loadSongs - START. AI output:", JSON.stringify(aiOutputToUse), "Form values:", JSON.stringify(formValuesToUse, null, 2), "Offset:", offsetToLoad, "IsNewSearch:", isNewSearch);
 
     try {
       const { songs: newSongs, total: totalFromServer } = await fetchSpotifyTracksAction(
@@ -305,11 +295,6 @@ export default function Home() {
 
   const hasMoreSongs = recommendedSongs.length > 0 && recommendedSongs.length < totalSongsAvailable;
   
-  const currentMoodDescriptionForDisplay = activeSearchType === 'structured_mood' 
-    ? currentFullFormValues?.moodComposerParams?.selectedMoodName?.replace(/_/g, ' ') || currentFullFormValues?.moodComposerParams?.energy?.toString() 
-    : currentFullFormValues?.moodDescription;
-
-
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
       <Header />
@@ -339,7 +324,7 @@ export default function Home() {
           <div id="sonic-matches-results" className="mt-12 md:mt-16 animate-slide-up">
              <SonicMatches 
                songs={recommendedSongs}
-               aiInterpretation={aiInterpretation} // Pass AI interpretation for display
+               aiInterpretation={aiInterpretation}
                onLoadMore={handleLoadMore}
                isLoadingMore={isLoadingMore}
                hasMore={hasMoreSongs}

@@ -1,8 +1,8 @@
+// src/types/index.ts
 
 import type { InterpretMusicalIntentOutput as GenAiInterpretOutput, InterpretMusicalIntentInput as GenAiInterpretInput } from '@/ai/flows/interpret-musical-intent';
 import type { AnalyzeSocialProfileOutput as GenAIProfileOutput, AnalyzeSocialProfileInput as GenAIProfileInput } from '@/ai/flows/analyze-social-profile';
-// InterpretProfileForMusicOutput is structurally the same as InterpretMusicalIntentOutput now
-// import type { InterpretProfileForMusicOutput as GenAIProfileInterpretOutput, InterpretProfileForMusicInput as GenAIProfileInterpretInput } from '@/ai/flows/interpret-profile-for-music';
+import type { InterpretProfileForMusicInput as GenAIProfileInterpretInput } from '@/ai/flows/interpret-profile-for-music';
 
 
 export interface Song {
@@ -14,7 +14,7 @@ export interface Song {
   platformLinks: {
     spotify?: string;
     youtube?: string;
-    appleMusic?: string;
+    // appleMusic?: string; // Not currently implemented
   };
   aiHint?: string;
 }
@@ -23,9 +23,9 @@ export interface Song {
 export type InterpretMusicalIntentOutput = GenAiInterpretOutput;
 export type InterpretMusicalIntentInput = GenAiInterpretInput;
 
-export type ProfileAnalysisOutput = GenAIProfileOutput;
-export type ProfileAnalysisInput = GenAIProfileInput;
+export type ProfileAnalysisOutput = GenAIProfileOutput; // This is the Zod schema-derived type
+export type AnalyzeSocialProfileInput = GenAIProfileInput;
 
-// InterpretProfileForMusicOutput will be the same structure as InterpretMusicalIntentOutput
+// InterpretProfileForMusicOutput is structurally the same as InterpretMusicalIntentOutput (fallbackSearchQuery)
 export type InterpretProfileForMusicOutput = GenAiInterpretOutput; 
-export type { InterpretProfileForMusicInput } from '@/ai/flows/interpret-profile-for-music'; // Import this directly
+export type InterpretProfileForMusicInput = GenAIProfileInterpretInput;
