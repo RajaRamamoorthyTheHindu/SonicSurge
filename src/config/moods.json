@@ -16,7 +16,7 @@
     "name": "energetic_workout",
     "displayName": "Energetic Workout",
     "seed_genres": ["electronic", "dance", "pop", "workout"],
-    "defaults": { "target_energy": 0.9, "target_valence": 0.6, "target_danceability": 0.8 }
+    "defaults": { "target_energy": 0.9, "target_valence": 0.6, "target_danceability": 0.8, "target_popularity": 75 }
   },
   {
     "name": "focused_study",
@@ -33,13 +33,13 @@
   {
     "name": "road_trip",
     "displayName": "Road Trip Anthems",
-    "seed_genres": ["rock", "pop", "alternative", "summer"],
+    "seed_genres": ["rock", "pop", "alternative"],
     "defaults": { "target_energy": 0.7, "target_valence": 0.7, "target_danceability": 0.6 }
   },
   {
     "name": "melancholy_reflective",
     "displayName": "Melancholy & Reflective",
-    "seed_genres": ["sad", "acoustic", "indie-pop"],
+    "seed_genres": ["sad", "acoustic", "indie-pop", "singer-songwriter"],
     "defaults": { "target_energy": 0.3, "target_valence": 0.2, "target_tempo": 90 }
   },
   {
@@ -52,7 +52,7 @@
     "name": "late_night_drive",
     "displayName": "Late Night Drive",
     "seed_genres": ["electronic", "synthwave", "chillwave", "trip-hop"],
-    "defaults": { "target_energy": 0.5, "target_valence": 0.4, "target_tempo": 110 }
+    "defaults": { "target_energy": 0.5, "target_valence": 0.4, "target_tempo": 110, "target_instrumentalness": 0.3 }
   },
   {
     "name": "folk_acoustic_storytelling",
