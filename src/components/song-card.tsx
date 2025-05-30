@@ -6,7 +6,7 @@ import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button';
 import { SpotifyIcon } from '@/components/icons/spotify-icon';
 import { YouTubeMusicIcon } from '@/components/icons/youtube-music-icon';
-import { AppleMusicIcon } from '@/components/icons/apple-music-icon';
+// import { AppleMusicIcon } from '@/components/icons/apple-music-icon'; // Apple Music not implemented
 import { cn } from '@/lib/utils';
 
 interface SongCardProps {
@@ -15,7 +15,7 @@ interface SongCardProps {
 
 const PlatformLinkButton = ({ href, icon, label, className }: { href: string, icon: React.ReactNode, label: string, className?: string }) => (
   <Button variant="ghost" size="icon" asChild className={cn("rounded-full w-9 h-9 hover:bg-foreground/10", className)}>
-    <Link href={href} target="_blank" rel="noopener noreferrer" aria-label={`Listen to ${label} on ${href.includes('spotify') ? 'Spotify' : href.includes('youtube') ? 'YouTube Music' : 'Apple Music'}`}>
+    <Link href={href} target="_blank" rel="noopener noreferrer" aria-label={`Listen to ${label} on ${href.includes('spotify') ? 'Spotify' : href.includes('youtube') ? 'YouTube Music' : 'another platform'}`}>
       {icon}
     </Link>
   </Button>
@@ -32,11 +32,11 @@ export function SongCard({ song }: SongCardProps) {
           <Image
             src={song.albumArtUrl}
             alt={`Album art for ${song.albumName || song.songTitle}`}
-            fill // Changed from layout="fill"
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" // Example sizes, adjust as needed
+            fill 
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" 
             className="object-cover transition-transform duration-500 ease-in-out group-hover:scale-105"
             data-ai-hint={song.aiHint || "album art"}
-            priority // Consider adding priority for above-the-fold images
+            priority 
           />
         </div>
       </CardHeader>
@@ -47,7 +47,7 @@ export function SongCard({ song }: SongCardProps) {
         <p className="text-sm text-muted-foreground truncate" title={song.artistName}>{song.artistName}</p>
         {song.albumName && <p className="text-xs text-muted-foreground/70 truncate" title={song.albumName}>{song.albumName}</p>}
       </CardContent>
-      {(song.platformLinks.spotify || song.platformLinks.youtube || song.platformLinks.appleMusic) && (
+      {(song.platformLinks.spotify || song.platformLinks.youtube) && ( // Removed Apple Music check
         <CardFooter className="p-3 md:p-4 pt-0 flex justify-start items-center space-x-2">
           {song.platformLinks.spotify && (
             <PlatformLinkButton href={song.platformLinks.spotify} icon={<SpotifyIcon className="w-5 h-5 text-green-500" />} label={song.songTitle} />
@@ -55,12 +55,9 @@ export function SongCard({ song }: SongCardProps) {
           {song.platformLinks.youtube && (
             <PlatformLinkButton href={song.platformLinks.youtube} icon={<YouTubeMusicIcon className="w-5 h-5 text-red-500" />} label={song.songTitle} />
           )}
-          {song.platformLinks.appleMusic && (
-            <PlatformLinkButton href={song.platformLinks.appleMusic} icon={<AppleMusicIcon className="w-5 h-5 text-pink-500" />} label={song.songTitle} />
-          )}
+          {/* Removed Apple Music button */}
         </CardFooter>
       )}
     </Card>
   );
 }
-

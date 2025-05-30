@@ -8,14 +8,14 @@ import { SongListItemMobile } from '@/components/song-list-item-mobile';
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+// import { Badge } from '@/components/ui/badge'; // Badge removed as seed/target display is removed
 import { Info, Loader2, ChevronDown } from 'lucide-react'; 
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { useMediaQuery } from '@/hooks/use-media-query';
 
 interface SonicMatchesProps {
   songs: Song[];
-  aiInterpretation: AIOutput | null; 
+  aiInterpretation?: AIOutput | null; 
   onLoadMore: () => void;
   isLoadingMore: boolean;
   hasMore: boolean;
@@ -26,24 +26,8 @@ export function SonicMatches({ songs, aiInterpretation, onLoadMore, isLoadingMor
   const wasSearchAttempted = originalMoodDescription || songs.length > 0 || aiInterpretation;
   const isDesktop = useMediaQuery('(min-width: 768px)');
 
-  const hasRelevantAiOutput = aiInterpretation && (
-    (aiInterpretation.seed_tracks && aiInterpretation.seed_tracks.length > 0) ||
-    (aiInterpretation.seed_artists && aiInterpretation.seed_artists.length > 0) ||
-    (aiInterpretation.seed_genres && aiInterpretation.seed_genres.length > 0) ||
-    aiInterpretation.target_acousticness !== undefined ||
-    aiInterpretation.target_danceability !== undefined ||
-    aiInterpretation.target_energy !== undefined ||
-    aiInterpretation.target_instrumentalness !== undefined ||
-    aiInterpretation.target_liveness !== undefined ||
-    aiInterpretation.target_loudness !== undefined ||
-    aiInterpretation.target_mode !== undefined ||
-    aiInterpretation.target_popularity !== undefined ||
-    aiInterpretation.target_speechiness !== undefined ||
-    aiInterpretation.target_tempo !== undefined ||
-    aiInterpretation.target_time_signature !== undefined ||
-    aiInterpretation.target_valence !== undefined ||
-    aiInterpretation.fallbackSearchQuery
-  );
+  // Updated to check for the primary output of the AI: fallbackSearchQuery
+  const hasRelevantAiOutput = aiInterpretation && aiInterpretation.fallbackSearchQuery && aiInterpretation.fallbackSearchQuery.trim() !== '';
 
   if (!wasSearchAttempted && songs.length === 0) {
     console.log("SonicMatches: No search attempted and no songs. Rendering null.");
@@ -57,56 +41,15 @@ export function SonicMatches({ songs, aiInterpretation, onLoadMore, isLoadingMor
           Your Sonic Matches
         </h2>
 
-        {/* AI Interpretation Debug Card - Re-enabled for debugging */}
-        {aiInterpretation && hasRelevantAiOutput && (
+        {/* AI Interpretation Debug Card - Displays only fallbackSearchQuery now */}
+        {hasRelevantAiOutput && (
           <Card className="form-container-card subtle-shadow">
             <CardHeader className="pb-2 pt-4 px-4 md:px-6">
               <CardTitle className="text-base font-semibold text-foreground">AI Recommendation Parameters</CardTitle>
             </CardHeader>
             <CardContent className="text-xs text-muted-foreground px-4 md:px-6 pb-4 space-y-2">
-              {aiInterpretation.fallbackSearchQuery && (
-                <div><strong>Spotify Fallback Search Query:</strong> {aiInterpretation.fallbackSearchQuery}</div>
-              )}
-              {(aiInterpretation.seed_tracks && aiInterpretation.seed_tracks.length > 0) && (
-                <div><strong>Seed Tracks:</strong> {aiInterpretation.seed_tracks.map(t => <Badge key={t} variant="secondary" className="mr-1 my-0.5">{t}</Badge>)}</div>
-              )}
-              {(aiInterpretation.seed_artists && aiInterpretation.seed_artists.length > 0) && (
-                <div><strong>Seed Artists:</strong> {aiInterpretation.seed_artists.map(a => <Badge key={a} variant="secondary" className="mr-1 my-0.5">{a}</Badge>)}</div>
-              )}
-              {(aiInterpretation.seed_genres && aiInterpretation.seed_genres.length > 0) && (
-                <div><strong>Seed Genres:</strong> {aiInterpretation.seed_genres.map(g => <Badge key={g} variant="secondary" className="mr-1 my-0.5">{g}</Badge>)}</div>
-              )}
-              {(
-                aiInterpretation.target_acousticness !== undefined ||
-                aiInterpretation.target_danceability !== undefined ||
-                aiInterpretation.target_energy !== undefined ||
-                aiInterpretation.target_instrumentalness !== undefined ||
-                aiInterpretation.target_liveness !== undefined ||
-                aiInterpretation.target_loudness !== undefined ||
-                aiInterpretation.target_mode !== undefined ||
-                aiInterpretation.target_popularity !== undefined ||
-                aiInterpretation.target_speechiness !== undefined ||
-                aiInterpretation.target_tempo !== undefined ||
-                aiInterpretation.target_time_signature !== undefined ||
-                aiInterpretation.target_valence !== undefined
-              ) && (
-                <div>
-                  <strong>Target Audio Features:</strong>
-                  <ul className="list-disc list-inside pl-1">
-                    {aiInterpretation.target_acousticness !== undefined && <li>Acousticness: {aiInterpretation.target_acousticness.toFixed(2)}</li>}
-                    {aiInterpretation.target_danceability !== undefined && <li>Danceability: {aiInterpretation.target_danceability.toFixed(2)}</li>}
-                    {aiInterpretation.target_energy !== undefined && <li>Energy: {aiInterpretation.target_energy.toFixed(2)}</li>}
-                    {aiInterpretation.target_instrumentalness !== undefined && <li>Instrumentalness: {aiInterpretation.target_instrumentalness.toFixed(2)}</li>}
-                    {aiInterpretation.target_liveness !== undefined && <li>Liveness: {aiInterpretation.target_liveness.toFixed(2)}</li>}
-                    {aiInterpretation.target_loudness !== undefined && <li>Loudness: {aiInterpretation.target_loudness.toFixed(2)}</li>}
-                    {aiInterpretation.target_mode !== undefined && <li>Mode: {aiInterpretation.target_mode}</li>}
-                    {aiInterpretation.target_popularity !== undefined && <li>Popularity: {aiInterpretation.target_popularity}</li>}
-                    {aiInterpretation.target_speechiness !== undefined && <li>Speechiness: {aiInterpretation.target_speechiness.toFixed(2)}</li>}
-                    {aiInterpretation.target_tempo !== undefined && <li>Tempo: {Math.round(aiInterpretation.target_tempo)} BPM</li>}
-                    {aiInterpretation.target_time_signature !== undefined && <li>Time Signature: {aiInterpretation.target_time_signature}</li>}
-                    {aiInterpretation.target_valence !== undefined && <li>Valence (Positiveness): {aiInterpretation.target_valence.toFixed(2)}</li>}
-                  </ul>
-                </div>
+              {aiInterpretation?.fallbackSearchQuery && (
+                <div><strong>Spotify Search Query:</strong> {aiInterpretation.fallbackSearchQuery}</div>
               )}
             </CardContent>
           </Card>

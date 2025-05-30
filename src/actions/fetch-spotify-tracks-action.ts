@@ -2,6 +2,7 @@
 // src/actions/fetch-spotify-tracks-action.ts
 'use server';
 
+import type { Song } from '@/types'; // Added import for Song type
 import { 
   searchSpotifyTracksService 
 } from '@/services/spotify-service';
@@ -40,3 +41,4 @@ export async function fetchSpotifyTracksAction(
     return { songs: [], total: 0 }; 
   }
 }
+

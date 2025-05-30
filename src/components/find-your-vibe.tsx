@@ -11,11 +11,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Loader2, Search, Settings2, Palette, User, Filter } from 'lucide-react';
-import type { AnalyzeSocialProfileOutput } from '@/types';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Loader2, Search, Settings2, Palette, User, Filter, Mic } from 'lucide-react';
+// import type { AnalyzeSocialProfileOutput } from '@/types'; // Removed as social profile feature is disabled
 import { MoodComposer } from '@/components/mood-composer';
-import type { MoodInput } from '@/ai/flows/interpret-musical-intent'; // Kept for MoodComposer type
+import type { MoodComposerData } from '@/types'; // Using MoodComposerData type
 
+// Define the Zod schema for form validation
 const formSchema = z.object({
   moodDescription: z.string().optional(),
   socialProfileUrl: z.string().url({ message: 'Please enter a valid URL.' }).optional().or(z.literal('')),
@@ -23,31 +25,34 @@ const formSchema = z.object({
   instrumentTags: z.string().optional(),
 });
 
+// Type for the form values, including parameters from MoodComposer
 export type FormValues = z.infer<typeof formSchema> & {
-  moodComposerParams?: MoodInput | null;
+  moodComposerParams?: MoodComposerData | null;
 };
 
 interface FindYourVibeProps {
   onSearchInitiated: (
     formValues: FormValues,
-    searchType: 'mood' | 'profile' | 'structured_mood'
+    searchType: 'mood' | 'profile' | 'structured_mood',
+    audioDataUri?: string | null
   ) => Promise<void>;
   isParentSearching: boolean;
-  profileAnalysis?: AnalyzeSocialProfileOutput | null;
-  profileAnalysisLoading?: boolean;
-  onAnalyzeProfile?: (url: string) => void;
+  // profileAnalysis?: AnalyzeSocialProfileOutput | null; // Removed as social profile feature is disabled
+  profileAnalysisLoading?: boolean; // Kept for future re-enablement, but UI is disabled
+  onAnalyzeProfile?: (url: string) => void; // Kept for future re-enablement
 }
 
 export function FindYourVibe({
   onSearchInitiated,
   isParentSearching,
-  profileAnalysis,
+  // profileAnalysis, // Removed
   profileAnalysisLoading,
   onAnalyzeProfile,
 }: FindYourVibeProps) {
   const [isSubmittingForm, setIsSubmittingForm] = useState(false);
-  const [moodComposerParams, setMoodComposerParams] = useState<MoodInput | null>(null);
-  const [activeAccordion, setActiveAccordion] = useState<string | undefined>(undefined);
+  const [moodComposerParams, setMoodComposerParams] = useState<MoodComposerData | null>(null);
+  const [activeTab, setActiveTab] = useState<'mood' | 'profile'>('mood');
+  const [activeAccordion, setActiveAccordion] = useState<string | undefined>(undefined); // For main advanced options
   
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -60,63 +65,78 @@ export function FindYourVibe({
     reValidateMode: 'onChange',
   });
 
+  // Watch form changes for debugging or complex conditional logic
   useEffect(() => {
-    const subscription = form.watch((value, { name, type }) => {
-      console.log("FindYourVibe: Form value changed, or type event:", name, type, JSON.stringify(value));
+    const subscription = form.watch((value, { name, type }: { name?: string, type?: string }) => { // Added explicit type for watch callback
+      console.log("FindYourVibe: Form value changed. Field:", name, "Type:", type, "Values:", JSON.stringify(value));
     });
     return () => subscription.unsubscribe();
-  }, [form, form.watch]);
+  }, [form]);
 
-
+  // Log component re-renders and key state changes
   useEffect(() => {
     console.log("FindYourVibe: Rerender triggered. isSubmittingForm:", isSubmittingForm, "isParentSearching:", isParentSearching, "moodComposerParams:", JSON.stringify(moodComposerParams));
   }, [isSubmittingForm, isParentSearching, moodComposerParams]);
 
 
-  const handleMoodComposerChange = useCallback((params: MoodInput | null) => {
+  // Callback for MoodComposer changes
+  const handleMoodComposerChange = useCallback((params: MoodComposerData | null) => {
     console.log("FindYourVibe: MoodComposer params changed:", JSON.stringify(params));
     setMoodComposerParams(params);
   }, []);
 
+  // Main form submission handler
   async function onSubmit(values: FormValues) {
-    console.log("FindYourVibe onSubmit - VERY START. Click detected. Values:", JSON.stringify(values));
+    console.log("FindYourVibe onSubmit - VERY START. Click detected. Values:", JSON.stringify(values), "ActiveTab:", activeTab, "MoodComposerParams:", JSON.stringify(moodComposerParams));
     setIsSubmittingForm(true);
-    console.log("FindYourVibe onSubmit - isSubmittingForm set to true. MoodComposerParams:", JSON.stringify(moodComposerParams));
 
     let searchType: 'mood' | 'profile' | 'structured_mood';
     const submissionValues: FormValues = { ...values, moodComposerParams };
 
+    const hasMoodDescription = values.moodDescription && values.moodDescription.trim() !== '';
     const hasSocialProfileUrl = values.socialProfileUrl && values.socialProfileUrl.trim() !== '';
     const hasMoodComposerInteraction = moodComposerParams && (
-        moodComposerParams.selectedMoodName ||
-        moodComposerParams.energy !== undefined ||
-        moodComposerParams.valence !== undefined ||
-        (moodComposerParams.tempo !== undefined && String(moodComposerParams.tempo).trim() !== '') ||
-        (moodComposerParams.languages && moodComposerParams.languages.length > 0)
+      moodComposerParams.selectedMoodName ||
+      moodComposerParams.energy !== undefined ||
+      moodComposerParams.valence !== undefined ||
+      (moodComposerParams.tempo !== undefined && String(moodComposerParams.tempo).trim() !== '') ||
+      (moodComposerParams.languages && moodComposerParams.languages.length > 0)
     );
-    const hasMoodDescription = values.moodDescription && values.moodDescription.trim() !== '';
 
-    if (hasSocialProfileUrl) {
+    if (activeTab === 'profile' && hasSocialProfileUrl) {
       searchType = 'profile';
       console.log("FindYourVibe onSubmit - Determined searchType: profile (social URL provided)");
-    } else if (hasMoodComposerInteraction) {
-      searchType = 'structured_mood';
-      console.log("FindYourVibe onSubmit - Determined searchType: structured_mood (mood composer interacted)");
-    } else if (hasMoodDescription) {
-      searchType = 'mood';
-      console.log("FindYourVibe onSubmit - Determined searchType: mood (free-text moodDescription only)");
+    } else if (activeTab === 'mood') {
+      if (hasMoodComposerInteraction) {
+        searchType = 'structured_mood';
+        console.log("FindYourVibe onSubmit - Determined searchType: structured_mood (mood composer interacted)");
+      } else if (hasMoodDescription) {
+        searchType = 'mood';
+        console.log("FindYourVibe onSubmit - Determined searchType: mood (free-text moodDescription only)");
+      } else {
+        form.setError("moodDescription", { type: "manual", message: "Please describe your vibe or use Mood Composer." });
+        setIsSubmittingForm(false);
+        console.log("FindYourVibe onSubmit - FORM ERROR SET (Mood Tab): No primary input provided.");
+        return;
+      }
     } else {
-      form.setError("moodDescription", { type: "manual", message: "Please describe your vibe or use advanced options." });
+      // This case should ideally not be reached if button disable logic is correct
+      // Or if profile URL is required and empty on profile tab
+      if (activeTab === 'profile' && !hasSocialProfileUrl) {
+         form.setError("socialProfileUrl", { type: "manual", message: "Please enter a social profile URL." });
+      } else {
+         form.setError("moodDescription", { type: "manual", message: "Please provide input for your vibe." });
+      }
       setIsSubmittingForm(false);
-      console.log("FindYourVibe onSubmit - FORM ERROR SET: No primary input provided. This should be rare if button disable logic is correct.");
+      console.log("FindYourVibe onSubmit - FORM ERROR SET: No input provided for active tab or unexpected state.");
       return;
     }
 
     console.log("FindYourVibe onSubmit - Before calling onSearchInitiated. SearchType:", searchType, "SubmissionValues:", JSON.stringify(submissionValues));
     try {
-      await onSearchInitiated(submissionValues, searchType);
+      await onSearchInitiated(submissionValues, searchType, null); // Passing null for audioDataUri for now
       console.log("FindYourVibe onSubmit - onSearchInitiated completed successfully.");
-    } catch { // Removed unused 'error' variable
+    } catch {
       console.error("FindYourVibe onSubmit - Error caught during/after onSearchInitiated call. Error display is handled by page.tsx via toast.");
     } finally {
       setIsSubmittingForm(false);
@@ -135,14 +155,16 @@ export function FindYourVibe({
     }
   };
   
+  // Function to determine if the Discover button should be disabled
   const isDiscoverButtonDisabled = () => {
     console.log("--- isDiscoverButtonDisabled Check START ---");
-    console.log(`States: isSubmittingForm=${isSubmittingForm}, isParentSearching=${isParentSearching}`);
+    console.log(`States: isSubmittingForm=${isSubmittingForm}, isParentSearching=${isParentSearching}, activeTab=${activeTab}`);
     
     const watchedMoodDescription = form.watch('moodDescription') || '';
+    const watchedSocialProfileUrl = form.watch('socialProfileUrl') || '';
     
     console.log(`MoodComposerParams: ${JSON.stringify(moodComposerParams)}`);
-    console.log(`Watched Values: moodDescription='${watchedMoodDescription}'`);
+    console.log(`Watched Values: moodDescription='${watchedMoodDescription}', socialProfileUrl='${watchedSocialProfileUrl}'`);
 
     if (isSubmittingForm || isParentSearching) {
       console.log("isDiscoverButtonDisabled FINAL: Result=true. Reason: Form is submitting or parent is searching.");
@@ -150,34 +172,42 @@ export function FindYourVibe({
       return true;
     }
 
-    const moodDescriptionProvided = watchedMoodDescription.trim() !== '';
-    const socialProfileUrlProvided = (form.watch('socialProfileUrl') || '').trim() !== '';
-    const moodComposerInteracted = moodComposerParams && (
-      moodComposerParams.selectedMoodName ||
-      moodComposerParams.energy !== undefined ||
-      moodComposerParams.valence !== undefined ||
-      (moodComposerParams.tempo !== undefined && String(moodComposerParams.tempo).trim() !== '') ||
-      (moodComposerParams.languages && moodComposerParams.languages.length > 0)
-    );
-    
     let isDisabled = true;
     let reason = "";
 
-    if (moodDescriptionProvided) {
+    if (activeTab === 'mood') {
+      const moodComposerInteracted = moodComposerParams && (
+        moodComposerParams.selectedMoodName ||
+        moodComposerParams.energy !== undefined ||
+        moodComposerParams.valence !== undefined ||
+        (moodComposerParams.tempo !== undefined && String(moodComposerParams.tempo).trim() !== '') ||
+        (moodComposerParams.languages && moodComposerParams.languages.length > 0)
+      );
+      const advancedTextProvided = watchedMoodDescription.trim() !== '';
+      console.log(`Mood Tab: moodComposerInteracted=${moodComposerInteracted ? moodComposerParams.selectedMoodName || true : null}, advancedTextProvided=${advancedTextProvided}`);
+
+      if (moodComposerInteracted || advancedTextProvided) {
         isDisabled = false;
-        reason = "Primary Mood Description provided.";
-    } else if (socialProfileUrlProvided && !isSubmittingForm && !profileAnalysisLoading) { // Enable if URL is present and not currently analyzing
+        reason = "Mood tab: Conditions met.";
+      } else {
+        reason = "Mood tab: Neither Mood Composer interacted nor Advanced Text provided.";
+      }
+    } else if (activeTab === 'profile') {
+      const socialProfileUrlProvided = watchedSocialProfileUrl.trim() !== '';
+      // Social profile input is disabled, so this path might not be fully usable for enabling the button
+      // if (socialProfileUrlProvided && !profileAnalysisLoading) { 
+      if (socialProfileUrlProvided && !profileAnalysisLoading && false) { // Effectively disabling this condition due to UI disablement
         isDisabled = false;
-        reason = "Social Profile URL provided and not currently analyzing.";
-    } else if (moodComposerInteracted) {
-        isDisabled = false;
-        reason = "Mood Composer interacted.";
-    } else {
-        isDisabled = true;
-        reason = "No primary input: Mood Description is empty, Social Profile URL is empty or being analyzed, and Mood Composer not interacted with.";
+        reason = "Profile tab: Social Profile URL provided and not analyzing.";
+      } else if (profileAnalysisLoading) {
+        reason = "Profile tab: Analyzing profile...";
+      } else if (!socialProfileUrlProvided) {
+        reason = "Profile tab: Social Profile URL is empty.";
+      } else {
+        reason = "Profile tab: Social Profile URL provided, but feature is disabled for submission.";
+      }
     }
     
-    console.log(`Intermediate checks: moodDescriptionProvided=${moodDescriptionProvided}, socialProfileUrlProvided=${socialProfileUrlProvided}, moodComposerInteracted=${!!moodComposerInteracted}`);
     console.log(`isDiscoverButtonDisabled FINAL: Result=${isDisabled}. Reason: ${reason}`);
     console.log("--- isDiscoverButtonDisabled Check END ---");
     return isDisabled;
@@ -190,7 +220,7 @@ export function FindYourVibe({
           <CardTitle className="form-card-title">How are you feeling today?</CardTitle>
         </CardHeader>
         <CardContent className="pt-6 px-0 md:px-0">
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-0">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-0" key={activeTab}>
             <div className="form-field-spacing">
               <Label htmlFor="moodDescription" className="form-label">
                 Mood / Vibe <span className="form-optional-label">(required for basic search)</span>
@@ -243,7 +273,8 @@ export function FindYourVibe({
                       </div>
                       {form.formState.errors.socialProfileUrl && <p className="text-xs text-destructive mt-1.5">{form.formState.errors.socialProfileUrl.message}</p>}
                     </div>
-                    {profileAnalysis && (
+                    {/* Social Profile Analysis result display (currently disabled) */}
+                    {/* {profileAnalysis && (
                       <div className="mb-1 p-3 bg-muted/50 rounded-lg text-xs space-y-1">
                         <p className="font-medium text-foreground">Profile Insights:</p>
                         {profileAnalysis.location && <p><strong>Location:</strong> {profileAnalysis.location}</p>}
@@ -253,7 +284,7 @@ export function FindYourVibe({
                             <p className="text-muted-foreground">No specific insights extracted. AI will use the URL for general context.</p>
                          )}
                       </div>
-                    )}
+                    )} */}
                   </div>
 
                   <hr className="border-border/50" />

@@ -18,7 +18,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import moodsData from '@/config/moods.json';
-import type { MoodInput } from '@/lib/music/buildRecommendationParams';
+import type { MoodComposerData } from '@/types'; // Using the centralized type
 
 const moodComposerSchema = z.object({
   selectedMoodName: z.string().optional(),
@@ -34,12 +34,11 @@ const moodComposerSchema = z.object({
 type MoodComposerFormValues = z.infer<typeof moodComposerSchema>;
 
 interface MoodComposerProps {
-  onParamsChange: (params: MoodInput | null) => void;
-  initialValues?: Partial<MoodInput>;
+  onParamsChange: (params: MoodComposerData | null) => void;
+  initialValues?: Partial<MoodComposerData>;
 }
 
 // Keep this list relatively short and common for simplicity in UI.
-// These should correspond to keys in languageToGenreMap in buildRecommendationParams.ts
 const availableLanguages = [
   { id: 'Spanish', label: 'Spanish' },
   { id: 'French', label: 'French' },
@@ -70,9 +69,6 @@ export function MoodComposer({ onParamsChange, initialValues }: MoodComposerProp
     const moodConfig = moodsData.find(m => m.name === watchedValues.selectedMoodName);
     
     if (watchedValues.selectedMoodName && moodConfig) {
-      // If a mood is selected, set sliders to its defaults if they haven't been touched by user
-      // For simplicity, we'll assume if the user touches a slider, they want that value.
-      // A more complex logic could reset sliders only when mood changes and sliders are still at old mood's defaults.
       if (form.formState.dirtyFields.energySlider === undefined && moodConfig.defaults.target_energy !== undefined) {
         form.setValue('energySlider', moodConfig.defaults.target_energy * 100, { shouldDirty: false });
       }
@@ -87,9 +83,15 @@ export function MoodComposer({ onParamsChange, initialValues }: MoodComposerProp
       setSelectedMoodDisplayName(undefined);
     }
 
-    // Construct MoodInput for parent
-    if (watchedValues.selectedMoodName || form.formState.isDirty) { // Only propagate if a mood is selected or form is dirty
-      const params: MoodInput = {
+    // Construct MoodComposerData for parent
+    const hasInteracted = watchedValues.selectedMoodName || 
+                         form.formState.dirtyFields.energySlider ||
+                         form.formState.dirtyFields.valenceSlider ||
+                         form.formState.dirtyFields.tempo ||
+                         form.formState.dirtyFields.languages;
+
+    if (hasInteracted) { 
+      const params: MoodComposerData = {
         selectedMoodName: watchedValues.selectedMoodName,
         energy: watchedValues.energySlider !== undefined ? watchedValues.energySlider / 100 : undefined,
         valence: watchedValues.valenceSlider !== undefined ? watchedValues.valenceSlider / 100 : undefined,
@@ -98,7 +100,7 @@ export function MoodComposer({ onParamsChange, initialValues }: MoodComposerProp
       };
       onParamsChange(params);
     } else {
-      onParamsChange(null); // No mood selected and no interaction yet
+      onParamsChange(null); 
     }
   }, [
       watchedValues.selectedMoodName, 
@@ -113,14 +115,14 @@ export function MoodComposer({ onParamsChange, initialValues }: MoodComposerProp
   // Clear selection function
   const handleClearMoodSelection = () => {
     form.reset({
-      selectedMoodName: undefined, // Clears the Select component
-      energySlider: 50, // Reset sliders to default or initial
+      selectedMoodName: undefined, 
+      energySlider: 50, 
       valenceSlider: 50,
       tempo: undefined,
       languages: [],
     });
     setSelectedMoodDisplayName(undefined);
-    onParamsChange(null); // Notify parent that mood is cleared
+    onParamsChange(null); 
   };
 
 
@@ -218,7 +220,7 @@ export function MoodComposer({ onParamsChange, initialValues }: MoodComposerProp
 
       <div>
         <Label className="form-label">
-          Language Preferences <span className="form-optional-label">(optional, adds genre seeds)</span>
+          Language Preferences <span className="form-optional-label">(optional)</span>
         </Label>
         <div className="mt-2 space-y-2">
           {availableLanguages.map((lang) => (
@@ -253,5 +255,3 @@ export function MoodComposer({ onParamsChange, initialValues }: MoodComposerProp
     </div>
   );
 }
-
-    
