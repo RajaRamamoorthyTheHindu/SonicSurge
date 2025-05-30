@@ -8,7 +8,7 @@ import { FindYourVibe, FormValues as FindYourVibeFormValues } from '@/components
 import { SonicMatches } from '@/components/sonic-matches';
 import type { Song } from '@/types';
 import type { InterpretMusicalIntentInput, InterpretMusicalIntentOutput as AIOutput } from '@/ai/flows/interpret-musical-intent';
-import type { AnalyzeSocialProfileOutput } from '@/ai/flows/analyze-social-profile';
+// import type { AnalyzeSocialProfileOutput } from '@/ai/flows/analyze-social-profile'; // Removed unused import
 import type { InterpretProfileForMusicInput } from '@/ai/flows/interpret-profile-for-music';
 import { interpretMusicalIntent } from '@/ai/flows/interpret-musical-intent';
 import { analyzeSocialProfile } from '@/ai/flows/analyze-social-profile';
@@ -16,8 +16,7 @@ import { interpretProfileAnalysisForMusic } from '@/ai/flows/interpret-profile-f
 import { fetchSpotifyTracksAction } from '@/actions/fetch-spotify-tracks-action';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-// import { buildSpotifyParamsFromMoodInput } from '@/lib/music/buildRecommendationParams'; // No longer called directly
-import moodsData from '@/config/moods.json'; // Import moodsData to get associated keywords
+import moodsData from '@/config/moods.json';
 
 const SONGS_PER_PAGE = 5;
 
@@ -34,9 +33,9 @@ export default function Home() {
   const [currentOffset, setCurrentOffset] = useState(0);
   const [totalSongsAvailable, setTotalSongsAvailable] = useState(0);
 
-  const [profileAnalysisResult, setProfileAnalysisResult] = useState<AnalyzeSocialProfileOutput | null>(null);
+  const [profileAnalysisResult, setProfileAnalysisResult] = useState<Awaited<ReturnType<typeof analyzeSocialProfile>> | null>(null);
   const [isProfileAnalysisLoading, setIsProfileAnalysisLoading] = useState(false);
-  const [activeSearchType, setActiveSearchType] = useState<'mood' | 'profile' | 'structured_mood' | null>(null);
+  // const [activeSearchType, setActiveSearchType] = useState<'mood' | 'profile' | 'structured_mood' | null>(null); // Removed unused variable
   const [currentMoodDescriptionForDisplay, setCurrentMoodDescriptionForDisplay] = useState<string | undefined>(undefined);
 
 
@@ -59,9 +58,13 @@ export default function Home() {
       }
     } catch (error) {
       let message = 'Could not analyze the profile URL.';
-      if (error instanceof Error) message = error.message;
-      else if (typeof error === 'string') message = error;
-      else if (typeof error === 'object' && error !== null && 'message' in error && typeof (error as any).message === 'string') message = (error as any).message;
+      if (error instanceof Error) {
+        message = error.message;
+      } else if (typeof error === 'string') {
+        message = error;
+      } else if (typeof error === 'object' && error !== null && 'message' in error && typeof (error as { message: string }).message === 'string') {
+        message = (error as { message: string }).message;
+      }
       
       console.error('page.tsx: handleAnalyzeProfile - Error analyzing profile:', message, error);
       toast({
@@ -78,7 +81,7 @@ export default function Home() {
 
   const handleSearchSubmit = async (
     formValuesFromForm: FindYourVibeFormValues,
-    searchType: 'mood' | 'profile' | 'structured_mood' // searchType from FindYourVibe
+    searchType: 'mood' | 'profile' | 'structured_mood'
   ) => {
     console.log("page.tsx: handleSearchSubmit called with formValues:", JSON.stringify(formValuesFromForm, null, 2), "searchType:", searchType);
     setIsLoadingSearch(true);
@@ -88,7 +91,7 @@ export default function Home() {
     setShowResults(false);
     setAiInterpretation(null);
     setCurrentFullFormValues(formValuesFromForm); 
-    setActiveSearchType(searchType);
+    // setActiveSearchType(searchType); // Removed assignment to unused variable
     setCurrentMoodDescriptionForDisplay(formValuesFromForm.moodDescription || formValuesFromForm.moodComposerParams?.selectedMoodName?.replace(/_/g, ' '));
 
 
@@ -98,8 +101,7 @@ export default function Home() {
       if (searchType === 'profile' && formValuesFromForm.socialProfileUrl) {
         console.log("page.tsx: Social profile path. URL:", formValuesFromForm.socialProfileUrl);
         let currentAnalysis = profileAnalysisResult;
-        // Always re-analyze if a social profile URL is provided in the search, 
-        // or if the existing analysis doesn't match the current URL
+
         if (!currentAnalysis || formValuesFromForm.socialProfileUrl !== currentAnalysis.sourceUrl) {
             setIsProfileAnalysisLoading(true); 
             try {
@@ -109,20 +111,23 @@ export default function Home() {
                 console.log("page.tsx: Social profile - Analysis result:", JSON.stringify(currentAnalysis));
             } catch(profileError) {
                 let message = 'Failed to analyze social profile during search.';
-                 if (profileError instanceof Error) message = profileError.message;
-                 else if (typeof profileError === 'string') message = profileError;
-                 else if (typeof profileError === 'object' && profileError !== null && 'message' in profileError && typeof (profileError as any).message === 'string') message = (profileError as any).message;
+                 if (profileError instanceof Error) {
+                    message = profileError.message;
+                 } else if (typeof profileError === 'string') {
+                    message = profileError;
+                 } else if (typeof profileError === 'object' && profileError !== null && 'message' in profileError && typeof (profileError as { message: string }).message === 'string') {
+                    message = (profileError as { message: string }).message;
+                 }
                 console.error("page.tsx: Social profile - Error analyzing profile:", message, profileError);
                 toast({ title: "Profile Analysis Error", description: message, variant: "destructive" });
-                // Use a default empty structure if analysis fails but URL was provided
-                currentAnalysis = { sourceUrl: formValuesFromForm.socialProfileUrl, keywords: [], location: '', languages: [] }; 
+                currentAnalysis = { sourceUrl: formValuesFromForm.socialProfileUrl, keywords: ['dummy', 'keyword'], location: 'Dummy Location', languages: ['dummy_lang'] }; 
             } finally {
                 setIsProfileAnalysisLoading(false);
             }
         }
 
         const profileInterpretInput: InterpretProfileForMusicInput = {
-          analysis: currentAnalysis || { sourceUrl: formValuesFromForm.socialProfileUrl, keywords: [], location: '', languages: [] }, // Ensure analysis is not null
+          analysis: currentAnalysis || { sourceUrl: formValuesFromForm.socialProfileUrl, keywords: [], location: '', languages: [] },
           songName: formValuesFromForm.songName,
           instrumentTags: formValuesFromForm.instrumentTags,
         };
@@ -131,7 +136,6 @@ export default function Home() {
         console.log("page.tsx: Social profile - finalAiOutput from interpretProfileAnalysisForMusic:", JSON.stringify(finalAiOutput));
 
       } else if (searchType === 'mood' || searchType === 'structured_mood') {
-        // Unified mood path - always call interpretMusicalIntent AI
         console.log("page.tsx: Unified Mood path (mood or structured_mood).");
         
         const aiInput: Partial<InterpretMusicalIntentInput> = {
@@ -164,10 +168,9 @@ export default function Home() {
         return;
       }
 
-      // Fallback if AI output is not actionable
       if (!finalAiOutput || !finalAiOutput.fallbackSearchQuery || finalAiOutput.fallbackSearchQuery.trim() === "") {
           console.warn("page.tsx: AI output was null or did not contain a fallbackSearchQuery. Constructing a generic fallback.", finalAiOutput);
-          let fallback = "popular music"; // Default fallback
+          let fallback = "popular music";
           if (formValuesFromForm.moodDescription && formValuesFromForm.moodDescription.trim() !== "") {
               fallback = `music for ${formValuesFromForm.moodDescription.trim()}`;
           } else if (formValuesFromForm.moodComposerParams?.selectedMoodName) {
@@ -205,9 +208,13 @@ export default function Home() {
       }
     } catch (error) {
       let message = 'Could not process your request. Please try again.';
-      if (error instanceof Error) message = error.message;
-      else if (typeof error === 'string') message = error;
-      else if (typeof error === 'object' && error !== null && 'message' in error && typeof (error as any).message === 'string') message = (error as any).message;
+      if (error instanceof Error) {
+        message = error.message;
+      } else if (typeof error === 'string') {
+        message = error;
+      } else if (typeof error === 'object' && error !== null && 'message' in error && typeof (error as { message: string }).message === 'string') {
+        message = (error as { message: string }).message;
+      }
 
       console.error('page.tsx: Error in search submission or AI interpretation pipeline:', message, error);
       toast({
@@ -254,20 +261,21 @@ export default function Home() {
         }
       });
       setTotalSongsAvailable(totalFromServer); 
-      setCurrentOffset(offsetToLoad + newSongs.length); // This might need adjustment if uniqueNewSongs is shorter
+      setCurrentOffset(offsetToLoad + newSongs.length);
+      console.log("page.tsx: loadSongs - State updated. Recommended songs count:", isNewSearch ? newSongs.length : recommendedSongs.length + newSongs.filter(s => !recommendedSongs.find(rs => rs.id === s.id)).length );
       
       if (newSongs.length === 0 && isNewSearch) {
         toast({ title: "No songs found for this vibe", description: "Try adjusting your mood or filters!", variant: "default"});
       }
-      // Correctly log the new length after state update (though this log will reflect previous state due to async nature of setRecommendedSongs)
-      // For more accurate logging of new length, use a useEffect hook watching recommendedSongs.
-      console.log("page.tsx: loadSongs - State update initiated. New recommended songs length would be:", (isNewSearch ? newSongs.length : recommendedSongs.length + newSongs.filter(s => !recommendedSongs.find(rs => rs.id === s.id)).length));
-
     } catch (error) {
       let message = 'Could not fetch song recommendations. Please try again.';
-      if (error instanceof Error) message = error.message;
-      else if (typeof error === 'string') message = error;
-      else if (typeof error === 'object' && error !== null && 'message' in error && typeof (error as any).message === 'string') message = (error as any).message;
+      if (error instanceof Error) {
+        message = error.message;
+      } else if (typeof error === 'string') {
+        message = error;
+      } else if (typeof error === 'object' && error !== null && 'message' in error && typeof (error as { message: string }).message === 'string') {
+        message = (error as { message: string }).message;
+      }
       
       console.error('page.tsx: loadSongs - Error fetching songs:', message, error);
       toast({
@@ -299,7 +307,6 @@ export default function Home() {
       toast({ title: "All songs loaded", description: "You've reached the end of the results for this vibe!", variant: "default" });
       return;
     }
-    // Use the length of current recommendedSongs as the offset for the next batch
     const nextOffset = recommendedSongs.length;
     console.log("page.tsx: handleLoadMore - Loading next batch of songs. Next offset to request:", nextOffset);
     loadSongs(aiInterpretation, currentFullFormValues, nextOffset, false);
@@ -345,7 +352,6 @@ export default function Home() {
           <div id="sonic-matches-results" className="mt-12 md:mt-16 animate-slide-up">
              <SonicMatches 
                songs={recommendedSongs}
-               aiInterpretation={aiInterpretation} // Kept for debugging display if needed
                onLoadMore={handleLoadMore}
                isLoadingMore={isLoadingMore}
                hasMore={hasMoreSongs}

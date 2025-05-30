@@ -3,7 +3,6 @@
 'use server';
 
 import { 
-  // getSpotifyRecommendationsService, // No longer used
   searchSpotifyTracksService 
 } from '@/services/spotify-service';
 import type { InterpretMusicalIntentOutput } from '@/ai/flows/interpret-musical-intent';
@@ -36,7 +35,8 @@ export async function fetchSpotifyTracksAction(
       return await searchSpotifyTracksService("popular music", limit, offset);
     }
   } catch (error) {
-    console.error("Error in fetchSpotifyTracksAction:", (error as Error).message, error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error fetching Spotify tracks';
+    console.error("Error in fetchSpotifyTracksAction:", errorMessage, error);
     return { songs: [], total: 0 }; 
   }
 }
