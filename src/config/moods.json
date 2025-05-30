@@ -3,91 +3,91 @@
   {
     "name": "upbeat_happy",
     "displayName": "Upbeat & Happy",
-    "seed_genres": ["pop", "dance", "happy"],
+    "search_keywords": ["upbeat", "happy", "pop", "dance"],
     "defaults": { "target_energy": 0.8, "target_valence": 0.8, "target_danceability": 0.7 }
   },
   {
     "name": "chill_relax",
     "displayName": "Chill & Relax",
-    "seed_genres": ["chill", "ambient", "acoustic"],
+    "search_keywords": ["chill", "relax", "ambient", "acoustic", "lo-fi"],
     "defaults": { "target_energy": 0.3, "target_valence": 0.5, "target_danceability": 0.2, "target_instrumentalness": 0.4 }
   },
   {
     "name": "energetic_workout",
     "displayName": "Energetic Workout",
-    "seed_genres": ["electronic", "dance", "pop", "workout"],
+    "search_keywords": ["energetic", "workout", "electronic", "dance", "pop", "gym"],
     "defaults": { "target_energy": 0.9, "target_valence": 0.6, "target_danceability": 0.8, "target_popularity": 75 }
   },
   {
     "name": "focused_study",
     "displayName": "Focused Study",
-    "seed_genres": ["classical", "ambient", "instrumental", "study"],
+    "search_keywords": ["focus", "study", "instrumental", "ambient", "classical", "concentration"],
     "defaults": { "target_energy": 0.2, "target_valence": 0.3, "target_instrumentalness": 0.8, "target_tempo": 100 }
   },
   {
     "name": "romantic_evening",
     "displayName": "Romantic Evening",
-    "seed_genres": ["r-n-b", "soul", "jazz", "romance"],
+    "search_keywords": ["romantic", "evening", "love songs", "r&b", "soul", "jazz", "ballads"],
     "defaults": { "target_energy": 0.4, "target_valence": 0.7, "target_loudness": -8 }
   },
   {
     "name": "road_trip",
     "displayName": "Road Trip Anthems",
-    "seed_genres": ["rock", "pop", "alternative"],
+    "search_keywords": ["road trip", "driving", "anthems", "rock", "pop", "alternative"],
     "defaults": { "target_energy": 0.7, "target_valence": 0.7, "target_danceability": 0.6 }
   },
   {
     "name": "melancholy_reflective",
     "displayName": "Melancholy & Reflective",
-    "seed_genres": ["sad", "acoustic", "indie-pop", "singer-songwriter"],
+    "search_keywords": ["melancholy", "reflective", "sad", "acoustic", "indie", "singer-songwriter", "introspective"],
     "defaults": { "target_energy": 0.3, "target_valence": 0.2, "target_tempo": 90 }
   },
   {
     "name": "party_mode",
     "displayName": "Party Mode",
-    "seed_genres": ["party", "hip-hop", "dance", "pop"],
+    "search_keywords": ["party", "upbeat", "hip-hop", "dance", "pop", "celebration"],
     "defaults": { "target_energy": 0.8, "target_valence": 0.7, "target_danceability": 0.85, "target_popularity": 70 }
   },
   {
     "name": "late_night_drive",
     "displayName": "Late Night Drive",
-    "seed_genres": ["electronic", "synthwave", "chillwave", "trip-hop"],
+    "search_keywords": ["late night drive", "electronic", "synthwave", "chillwave", "trip-hop", "atmospheric"],
     "defaults": { "target_energy": 0.5, "target_valence": 0.4, "target_tempo": 110, "target_instrumentalness": 0.3 }
   },
   {
     "name": "folk_acoustic_storytelling",
     "displayName": "Folk & Acoustic Storytelling",
-    "seed_genres": ["folk", "acoustic", "singer-songwriter"],
+    "search_keywords": ["folk", "acoustic", "storytelling", "singer-songwriter", "ballads"],
     "defaults": { "target_energy": 0.4, "target_valence": 0.6, "target_instrumentalness": 0.1, "target_speechiness": 0.05 }
   },
   {
     "name": "jazz_lounge_sophisticated",
     "displayName": "Jazz Lounge (Sophisticated)",
-    "seed_genres": ["jazz", "bossanova", "lounge"],
+    "search_keywords": ["jazz", "lounge", "sophisticated", "swing", "bossa nova", "instrumental jazz"],
     "defaults": { "target_energy": 0.4, "target_valence": 0.5, "target_instrumentalness": 0.6, "target_tempo": 100 }
   },
   {
     "name": "rock_anthem_stadium",
     "displayName": "Rock Anthems (Stadium)",
-    "seed_genres": ["rock", "hard-rock", "alt-rock"],
+    "search_keywords": ["rock anthems", "stadium rock", "classic rock", "hard rock", "alternative rock"],
     "defaults": { "target_energy": 0.8, "target_valence": 0.5, "target_loudness": -5 }
   },
   {
     "name": "reggae_sunshine_vibes",
     "displayName": "Reggae Sunshine Vibes",
-    "seed_genres": ["reggae", "dancehall", "dub"],
+    "search_keywords": ["reggae", "sunshine", "good vibes", "dancehall", "dub", "ska"],
     "defaults": { "target_energy": 0.6, "target_valence": 0.8, "target_danceability": 0.75 }
   },
   {
     "name": "classical_epic_cinematic",
     "displayName": "Classical (Epic & Cinematic)",
-    "seed_genres": ["classical", "soundtrack", "epicore"],
+    "search_keywords": ["classical music", "epic", "cinematic", "soundtrack", "orchestral", "film score"],
     "defaults": { "target_energy": 0.6, "target_valence": 0.3, "target_instrumentalness": 0.9 }
   },
   {
     "name": "indie_alternative_quirky",
     "displayName": "Indie & Alternative (Quirky)",
-    "seed_genres": ["indie", "indie-pop", "alt-rock", "alternative"],
+    "search_keywords": ["indie pop", "alternative rock", "quirky", "indie folk", "art pop"],
     "defaults": { "target_energy": 0.6, "target_valence": 0.55, "target_danceability": 0.5 }
   }
 ]
