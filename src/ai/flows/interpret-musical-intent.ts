@@ -5,7 +5,7 @@
 /**
  * @fileOverview This file defines a Genkit flow to interpret user musical intent,
  * primarily from a free-text mood description and optional song/instrument filters.
- * It now focuses on generating a rich search query for Spotify.
+ * It focuses on generating a rich search query for Spotify.
  *
  * @exported
  * - `InterpretMusicalIntentInput`: The input type for the interpretMusicalIntent function.
@@ -81,11 +81,12 @@ const interpretMusicalIntentPrompt = ai.definePrompt({
   input: {schema: InterpretMusicalIntentInputSchema},
   output: {schema: InterpretMusicalIntentOutputSchema},
   tools: [getSpotifyTrackInfoTool],
-  prompt: `You are an expert music curator. Your task is to translate the user's described mood, and any specific song/instrument preferences, into a rich, descriptive search query for Spotify. This query should capture the *essence* and *musical characteristics* of the desired vibe.
+  prompt: `You are an expert music curator. Your primary task is to translate the user's described mood, and any specific song/instrument preferences, into a rich, descriptive search query for Spotify. This query should capture the *essence* and *musical characteristics* of the desired vibe.
 
 User's Core Vibe Description: "{{{moodDescription}}}"
+This is the MOST IMPORTANT input. If the user provides a specific term like "Ballet music", "Jazz for a rainy day", or "upbeat 80s synthwave", your search query MUST directly reflect that specificity. Do not discard it for a generic query unless no meaningful musical interpretation can be made from the term itself.
 
-Consider the following additional information if provided:
+Consider the following additional information if provided, to refine the query:
 Preferred Song Name: {{{songName}}}
 Preferred Instruments: {{{instrumentTags}}}
 
@@ -95,24 +96,26 @@ You have access to the following tool:
 Based on ALL the information above, please return a JSON object matching the InterpretMusicalIntentOutputSchema, containing a single \`fallbackSearchQuery\` field.
 
 Detailed Instructions for constructing the \`fallbackSearchQuery\`:
-1.  **Analyze Vibe Musically**: Deeply analyze the user's \`moodDescription\`. Consider elements like tempo (e.g., 'slow electronic music', 'uptempo funk'), energy level (e.g., 'calm ambient pieces', 'high-energy rock anthems'), instrumentation (e.g., 'acoustic guitar ballads', 'songs with prominent synths'), vocal style (e.g., 'instrumental focus tracks', 'songs with powerful vocals'), and overall atmosphere (e.g., 'dreamy soundscapes', 'intense workout tracks', 'melancholic indie folk', 'joyful pop').
+1.  **Prioritize User's Vibe Description**: Deeply analyze the user's \`moodDescription\`. Translate this into musical characteristics. For example, if the mood is "Ballet", the query should relate to classical ballet scores, piano pieces for ballet, or famous ballet compositions. If "Jazz for a rainy day", think about "mellow jazz", "rainy day jazz playlist", "instrumental jazz for relaxation".
+    *   Consider elements like tempo (e.g., 'slow electronic music', 'uptempo funk'), energy level (e.g., 'calm ambient pieces', 'high-energy rock anthems'), instrumentation (e.g., 'acoustic guitar ballads', 'songs with prominent synths'), vocal style (e.g., 'instrumental focus tracks', 'songs with powerful vocals'), and overall atmosphere (e.g., 'dreamy soundscapes', 'intense workout tracks', 'melancholic indie folk', 'joyful pop').
 
 2.  **Song Name Integration**: If a \`songName\` (like '{{songName}}') is provided, use the \`getSpotifyTrackInfoTool\` to find its official name and artist.
     *   If found, construct a query that seeks music *similar in vibe* to that track, while still respecting the user's overall \`moodDescription\`. For example: "music for {{{moodDescription}}} with a vibe like '{{foundTrackName}}' by '{{foundArtistName}}'".
     *   If not found, but the \`songName\` seems descriptive, you can still incorporate it, e.g., "music for {{{moodDescription}}} like '{{songName}}'".
 
-3.  **Instrument Integration**: If \`instrumentTags\` (e.g., '{{instrumentTags}}') are provided, weave them naturally into the descriptive query, for example: "music for {{{moodDescription}}} featuring {{instrumentTags}}".
+3.  **Instrument Integration**: If \`instrumentTags\` (e.g., '{{instrumentTags}}') are provided, weave them naturally into the descriptive query, for example: "music for {{{moodDescription}}} featuring {{instrumentTags}}". For example, if mood is "Ballet" and instruments are "piano, strings", query could be "classical ballet piano and string music".
 
 4.  **Combine Naturally**: Construct a single, natural language query. The query should be a phrase that a human music enthusiast would type into Spotify. Aim for 3 to 7 significant terms or phrases for optimal Spotify search results.
-    *   Good Example: "Atmospheric electronic music for a late night drive, featuring dreamy synths, similar to 'Strobe' by deadmau5"
+    *   Good Example for mood "Ballet": "classical ballet music scores", "Tchaikovsky ballet pieces", "instrumental piano for ballet class"
+    *   Good Example for mood "late night drive" with song "Strobe": "Atmospheric electronic music for a late night drive, featuring dreamy synths, similar to 'Strobe' by deadmau5"
     *   Bad Example: "late_night_drive electronic dreamy synth strobe deadmau5"
 
-5.  **Fallback**: If the \`moodDescription\` is extremely vague and no other specific information is provided, create a general but still somewhat descriptive query like "popular upbeat electronic music" or "trending indie folk songs". Avoid generic "popular music" if possible.
+5.  **Fallback**: If the \`moodDescription\` is extremely vague (e.g., "music", "songs") AND no other specific information is provided, create a general but still somewhat descriptive query like "popular upbeat electronic music" or "trending indie folk songs". Avoid very generic "popular music" if a slightly more descriptive query is possible.
 
 IMPORTANT: The output MUST be a JSON object with only the \`fallbackSearchQuery\` field, containing the constructed search string.
-Example Output:
+Example Output for input mood "Ballet":
 {
-  "fallbackSearchQuery": "upbeat pop dance music with synth for summer road trip like 'Blinding Lights' by The Weeknd"
+  "fallbackSearchQuery": "classical ballet music scores Tchaikovsky"
 }
 Ensure the output is valid JSON matching the schema.
 `,
@@ -133,18 +136,35 @@ const interpretMusicalIntentFlow = ai.defineFlow(
 
     if (!output || !output.fallbackSearchQuery || output.fallbackSearchQuery.trim() === "") {
         console.warn("AI prompt 'interpretMusicalIntentPrompt' did not return a valid fallbackSearchQuery for input:", input, "Generated output:", JSON.stringify(output));
-        let fallback = `music for ${input.moodDescription || 'discovery'}`;
-        if (input.instrumentTags && fallback && input.instrumentTags.trim() !== '') {
+        // Fallback logic: Construct a query if AI fails to provide one.
+        // Prioritize moodDescription heavily here.
+        let fallback = "";
+        if (input.moodDescription && input.moodDescription.trim() !== "") {
+            // If moodDescription sounds like a genre or specific activity, use it more directly.
+            const lcMood = input.moodDescription.toLowerCase();
+            if (lcMood.includes("ballet") || lcMood.includes("jazz") || lcMood.includes("classical") || lcMood.includes("workout") || lcMood.includes("study")) {
+                fallback = `${input.moodDescription} music`;
+            } else {
+                fallback = `music for ${input.moodDescription}`;
+            }
+        } else {
+            // Very last resort if moodDescription is also empty.
+            fallback = "popular music";
+        }
+        
+        // Optionally, append song/instrument tags if they exist and aren't already in the fallback.
+        if (input.instrumentTags && input.instrumentTags.trim() !== '') {
             if (!fallback.toLowerCase().includes(input.instrumentTags.toLowerCase())) {
                  fallback += ` with ${input.instrumentTags}`;
             }
         }
-         if (input.songName && fallback && input.songName.trim() !== '') {
+        if (input.songName && input.songName.trim() !== '') {
             if (!fallback.toLowerCase().includes(input.songName.toLowerCase())) {
                  fallback += ` like ${input.songName}`;
             }
         }
-        if (fallback.trim() === "music for discovery") fallback = "popular music"; // Last resort
+        
+        console.log("interpretMusicalIntentFlow: Using constructed fallback query:", fallback.trim());
         return { fallbackSearchQuery: fallback.trim() };
     }
     
@@ -159,3 +179,5 @@ const interpretMusicalIntentFlow = ai.defineFlow(
 export async function interpretMusicalIntent(input: InterpretMusicalIntentInput): Promise<InterpretMusicalIntentOutput> {
   return interpretMusicalIntentFlow(input);
 }
+
+    
