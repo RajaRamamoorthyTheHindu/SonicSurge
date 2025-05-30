@@ -100,7 +100,7 @@ User Inputs:
     *   Energy level: {{#if moodComposerSelections.energy}}{{moodComposerSelections.energy}} (0-1 scale){{else}}Not specified{{/if}}
     *   Valence (positiveness): {{#if moodComposerSelections.valence}}{{moodComposerSelections.valence}} (0-1 scale){{else}}Not specified{{/if}}
     *   Target Tempo: {{#if moodComposerSelections.tempo}}{{moodComposerSelections.tempo}} BPM{{else}}Not specified{{/if}}
-    *   Preferred Languages: {{#if moodComposerSelections.languages}} "{{#each moodComposerSelections.languages}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}" {{else}}None{{/if}}
+    *   Preferred Languages: {{#if moodComposerSelections.languages}} "{{#each moodComposerSelections.languages}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}" {{else}}Not specified{{/if}}
     *   Use these structured inputs as strong thematic starting points and to infer musical qualities.
 
 3.  **Optional Song/Instrument Filters**:
@@ -116,7 +116,7 @@ Construct the \`fallbackSearchQuery\` based on ALL information:
     *   Use \`moodComposerSelections.selectedMoodDisplayName\` and \`moodComposerSelections.associatedKeywords\` as thematic guides.
     *   Translate \`moodComposerSelections.energy\` and \`moodComposerSelections.valence\` into descriptive terms (e.g., high energy, calm, joyful, melancholic).
     *   If \`moodComposerSelections.tempo\` is specified, incorporate terms like "fast tempo", "slow tempo".
-    *   If \`moodComposerSelections.languages\` are present, add relevant cultural context (e.g., "japanese pop influences", "music with spanish lyrics").
+    *   **Language Integration (CRITICAL)**: If \`moodComposerSelections.languages\` are provided (e.g., ["Tamil", "Japanese"]), the search query MUST strongly reflect these. Add terms like "Tamil music", "songs in Japanese", "featuring Tamil vocals", or "Japanese pop influences". For example, if mood is "chill" and language is "Tamil", the query could be "chill Tamil music" or "relaxing songs in Tamil". This is a high-priority instruction.
 2.  **Song Name Integration**: If \`songName\` is provided, use \`getSpotifyTrackInfoTool\`. If found, incorporate it like: "music with a vibe like '{{foundTrackName}}' by '{{foundArtistName}}'".
 3.  **Instrument Integration**: Weave \`instrumentTags\` naturally (e.g., "featuring {{instrumentTags}}", "songs with prominent piano").
 4.  **Query Crafting**:
@@ -179,6 +179,16 @@ const interpretMusicalIntentFlow = ai.defineFlow(
             }
         }
         
+        // Explicitly add language to fallback if not already present
+        if (input.moodComposerSelections?.languages && input.moodComposerSelections.languages.length > 0) {
+            for (const lang of input.moodComposerSelections.languages) {
+                const langQueryPart = `${lang} music`; // e.g., "Tamil music"
+                if (!fallback.toLowerCase().includes(lang.toLowerCase())) { // Check if lang itself or "lang music" is present
+                    fallback += ` ${langQueryPart}`;
+                }
+            }
+        }
+
         console.log("interpretMusicalIntentFlow: Using constructed fallback query:", fallback.trim());
         return { fallbackSearchQuery: fallback.trim() };
     }
