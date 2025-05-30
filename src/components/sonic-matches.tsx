@@ -15,7 +15,7 @@ import { useMediaQuery } from '@/hooks/use-media-query';
 
 interface SonicMatchesProps {
   songs: Song[];
-  aiInterpretation: AIOutput | null; // Added back for debugging
+  aiInterpretation: AIOutput | null; 
   onLoadMore: () => void;
   isLoadingMore: boolean;
   hasMore: boolean;
@@ -46,6 +46,7 @@ export function SonicMatches({ songs, aiInterpretation, onLoadMore, isLoadingMor
   );
 
   if (!wasSearchAttempted && songs.length === 0) {
+    console.log("SonicMatches: No search attempted and no songs. Rendering null.");
     return null; 
   }
 
@@ -56,7 +57,7 @@ export function SonicMatches({ songs, aiInterpretation, onLoadMore, isLoadingMor
           Your Sonic Matches
         </h2>
 
-        {/* AI Interpretation Debug Card - Re-enabled */}
+        {/* AI Interpretation Debug Card - Re-enabled for debugging */}
         {aiInterpretation && hasRelevantAiOutput && (
           <Card className="form-container-card subtle-shadow">
             <CardHeader className="pb-2 pt-4 px-4 md:px-6">
@@ -64,16 +65,16 @@ export function SonicMatches({ songs, aiInterpretation, onLoadMore, isLoadingMor
             </CardHeader>
             <CardContent className="text-xs text-muted-foreground px-4 md:px-6 pb-4 space-y-2">
               {aiInterpretation.fallbackSearchQuery && (
-                <p><strong>Spotify Fallback Search Query:</strong> {aiInterpretation.fallbackSearchQuery}</p>
+                <div><strong>Spotify Fallback Search Query:</strong> {aiInterpretation.fallbackSearchQuery}</div>
               )}
               {(aiInterpretation.seed_tracks && aiInterpretation.seed_tracks.length > 0) && (
-                <p><strong>Seed Tracks:</strong> {aiInterpretation.seed_tracks.map(t => <Badge key={t} variant="secondary" className="mr-1 my-0.5">{t}</Badge>)}</p>
+                <div><strong>Seed Tracks:</strong> {aiInterpretation.seed_tracks.map(t => <Badge key={t} variant="secondary" className="mr-1 my-0.5">{t}</Badge>)}</div>
               )}
               {(aiInterpretation.seed_artists && aiInterpretation.seed_artists.length > 0) && (
-                <p><strong>Seed Artists:</strong> {aiInterpretation.seed_artists.map(a => <Badge key={a} variant="secondary" className="mr-1 my-0.5">{a}</Badge>)}</p>
+                <div><strong>Seed Artists:</strong> {aiInterpretation.seed_artists.map(a => <Badge key={a} variant="secondary" className="mr-1 my-0.5">{a}</Badge>)}</div>
               )}
               {(aiInterpretation.seed_genres && aiInterpretation.seed_genres.length > 0) && (
-                <p><strong>Seed Genres:</strong> {aiInterpretation.seed_genres.map(g => <Badge key={g} variant="secondary" className="mr-1 my-0.5">{g}</Badge>)}</p>
+                <div><strong>Seed Genres:</strong> {aiInterpretation.seed_genres.map(g => <Badge key={g} variant="secondary" className="mr-1 my-0.5">{g}</Badge>)}</div>
               )}
               {(
                 aiInterpretation.target_acousticness !== undefined ||
@@ -122,7 +123,7 @@ export function SonicMatches({ songs, aiInterpretation, onLoadMore, isLoadingMor
                       <TableHead className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[25%]">Artist Name</TableHead>
                       <TableHead className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[25%]">Album Name</TableHead>
                       <TableHead className="py-3 px-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[10%]">Cover Art</TableHead>
-                      <TableHead className="py-3 px-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[10%]">Listen</TableHead> 
+                      <TableHead className="py-3 px-4 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground w-[10%]">Listen Options</TableHead> 
                     </TableRow>
                   </TableHeader>
                   <TableBody>
