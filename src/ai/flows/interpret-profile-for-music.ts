@@ -73,8 +73,8 @@ const interpretProfileForMusicPrompt = ai.definePrompt({
   name: 'interpretProfileForMusicPrompt',
   input: { schema: InterpretProfileForMusicInputSchema },
   output: { schema: InterpretProfileForMusicOutputSchema },
-  tools: [getSpotifyTrackInfoTool_profile], // Removed getValidSpotifyGenresTool as genres are now keywords
-  prompt: `You are a music recommendation AI. Your goal is to generate a rich and descriptive Spotify search query based on a user's social profile analysis and any additional preferences.
+  tools: [getSpotifyTrackInfoTool_profile],
+  prompt: `You are an expert music curator. Your task is to translate the user's social profile analysis, and any specific song/instrument preferences, into a rich, descriptive search query for Spotify. This query should capture the *essence* and *musical characteristics* of the desired vibe based on their profile.
 
 User's Social Profile Analysis:
 Keywords: {{#if analysis.keywords.length}}{{#each analysis.keywords}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}{{else}}Not provided{{/if}}
@@ -87,26 +87,35 @@ Specific Song Name: {{{songName}}}
 Key Instruments: {{{instrumentTags}}}
 
 You have access to the following tool:
-- \`getSpotifyTrackInfoTool({ trackName: string })\`: Searches for a track by name. Returns track name and primary artist name.
+- \`getSpotifyTrackInfoTool_profile({ trackName: string })\`: Searches for a track by name. Returns track name and primary artist name.
 
 Based on ALL available information, return a JSON object with a single \`fallbackSearchQuery\` field for Spotify.
 
-Instructions for constructing the \`fallbackSearchQuery\`:
-1.  **Profile Insights**:
-    *   Incorporate \`analysis.keywords\` (e.g., "coding", "photography").
-    *   Incorporate \`analysis.location\` (e.g., "music popular in Berlin", "songs from Brazil").
-    *   Incorporate \`analysis.languages\` (e.g., "Tamil music", "French pop songs").
-2.  **Additional Preferences**:
-    *   If \`songName\` is provided, use \`getSpotifyTrackInfoTool()\` to get its official name and artist. If found, add "similar to '[foundTrackName]' by '[foundArtistName]'" or "like '[foundTrackName]'" to the query.
-    *   If \`instrumentTags\` are provided (e.g., 'piano'), include them naturally (e.g., "music with piano").
-3.  **Combine**: Create a natural language search query. For example: "chill electronic music with piano popular in Berlin for users interested in photography, similar to the song 'Strobe' by deadmau5".
-4.  **Fallback**: If profile analysis is very sparse and no additional preferences are given, generate a broad query based on any available info, or default to "popular music" or "music related to content from {{{analysis.sourceUrl}}}".
+Detailed Instructions for constructing the \`fallbackSearchQuery\`:
+1.  **Analyze Profile Musically**: Infer musical characteristics.
+    *   From \`analysis.keywords\` (e.g., "coding" might suggest "focus electronic music", "photography" could imply "introspective ambient").
+    *   From \`analysis.location\` (e.g., "music popular in Berlin", "songs from Brazil", "sounds of {{analysis.location}}").
+    *   From \`analysis.languages\` (e.g., "Tamil indie scene", "French electronic pop").
+    *   Consider tempo, energy, instrumentation, vocal style, and overall atmosphere that might align with the profile.
 
-The output MUST be a JSON object with only the \`fallbackSearchQuery\` field.
+2.  **Song Name Integration**: If a \`songName\` is provided, use \`getSpotifyTrackInfoTool_profile\` to find its official name and artist.
+    *   If found, construct a query like: "music for someone interested in {{#if analysis.keywords.length}}{{{analysis.keywords.[0]}}}{{else}}their profile interests{{/if}}, with a vibe like '{{foundTrackName}}' by '{{foundArtistName}}'".
+    *   If not found, but the \`songName\` seems descriptive, incorporate it naturally.
+
+3.  **Instrument Integration**: If \`instrumentTags\` are provided, weave them into the query, e.g., "music featuring {{instrumentTags}} for someone interested in {{#if analysis.keywords.length}}{{{analysis.keywords.[0]}}}{{else}}travel{{/if}}".
+
+4.  **Combine Naturally**: Construct a single, natural language query. Aim for 3 to 7 significant terms or phrases.
+    *   Good Example: "Chill electronic music with piano, popular in Berlin, for users interested in photography, similar to 'Strobe' by deadmau5"
+    *   Bad Example: "berlin photography piano strobe deadmau5"
+
+5.  **Fallback**: If profile analysis is very sparse and no additional preferences are given, generate a broad query based on any available info, or default to "music related to content from {{{analysis.sourceUrl}}}" or "diverse international music". Avoid generic "popular music" if possible.
+
+IMPORTANT: The output MUST be a JSON object with only the \`fallbackSearchQuery\` field.
 Example Output:
 {
-  "fallbackSearchQuery": "Tamil indie music popular in London for users interested in travel and AI research, like 'Enjoy Enjaami'"
+  "fallbackSearchQuery": "Tamil indie music popular in London for users interested in travel and AI research, with a vibe like 'Enjoy Enjaami'"
 }
+Ensure the output is valid JSON matching the schema.
 `,
 });
 
@@ -120,15 +129,22 @@ const interpretProfileForMusicFlow = ai.defineFlow(
     console.log("interpretProfileForMusicFlow input:", JSON.stringify(input));
     const {output} = await interpretProfileForMusicPrompt(input);
     
-    if (!output || !output.fallbackSearchQuery) {
+    if (!output || !output.fallbackSearchQuery || output.fallbackSearchQuery.trim() === "") {
         console.warn("AI prompt 'interpretProfileForMusicPrompt' did not return a valid fallbackSearchQuery for input:", input, "Generated output:", JSON.stringify(output));
-        let fallback = "popular music";
-        if (input.songName) fallback = `music like ${input.songName}`;
-        else if (input.instrumentTags) fallback = `${input.instrumentTags} music`;
-        else if (input.analysis?.keywords && input.analysis.keywords.length > 0) fallback = `music related to ${input.analysis.keywords.join(' ')}`;
-        else if (input.analysis?.location) fallback = `music from ${input.analysis.location}`;
-        else if (input.analysis?.sourceUrl) fallback = `music related to content from ${input.analysis.sourceUrl}`;
+        let fallback = "popular music"; // Default
+        if (input.songName) {
+            fallback = `music like ${input.songName}`;
+        } else if (input.analysis?.keywords && input.analysis.keywords.length > 0) {
+            fallback = `music related to ${input.analysis.keywords.join(' ')}`;
+        } else if (input.analysis?.location) {
+            fallback = `music from ${input.analysis.location}`;
+        } else if (input.instrumentTags) {
+            fallback = `${input.instrumentTags} music`;
+        } else if (input.analysis?.sourceUrl) {
+             fallback = `music related to content from ${input.analysis.sourceUrl}`;
+        }
         
+        if (fallback.trim() === "") fallback = "popular music";
         return { fallbackSearchQuery: fallback.trim() };
     }
     
@@ -138,6 +154,5 @@ const interpretProfileForMusicFlow = ai.defineFlow(
 );
 
 export async function interpretProfileAnalysisForMusic(input: InterpretProfileForMusicInput): Promise<InterpretMusicalIntentOutput> {
-  // The actual return type of the flow matches InterpretMusicalIntentOutput
   return interpretProfileForMusicFlow(input) as Promise<InterpretMusicalIntentOutput>;
 }

@@ -3,91 +3,91 @@
   {
     "name": "upbeat_happy",
     "displayName": "Upbeat & Happy",
-    "search_keywords": ["upbeat", "happy", "pop", "dance"],
+    "search_keywords": ["upbeat pop dance music", "joyful energetic songs", "feel-good anthems"],
     "defaults": { "target_energy": 0.8, "target_valence": 0.8, "target_danceability": 0.7 }
   },
   {
     "name": "chill_relax",
     "displayName": "Chill & Relax",
-    "search_keywords": ["chill", "relax", "ambient", "acoustic", "lo-fi"],
+    "search_keywords": ["chill instrumental beats", "mellow relaxing music", "lo-fi for unwinding", "ambient soundscapes"],
     "defaults": { "target_energy": 0.3, "target_valence": 0.5, "target_danceability": 0.2, "target_instrumentalness": 0.4 }
   },
   {
     "name": "energetic_workout",
     "displayName": "Energetic Workout",
-    "search_keywords": ["energetic", "workout", "electronic", "dance", "pop", "gym"],
+    "search_keywords": ["high-energy electronic music", "workout playlist songs", "gym motivation tracks", "uptempo dance pop"],
     "defaults": { "target_energy": 0.9, "target_valence": 0.6, "target_danceability": 0.8, "target_popularity": 75 }
   },
   {
     "name": "focused_study",
     "displayName": "Focused Study",
-    "search_keywords": ["focus", "study", "instrumental", "ambient", "classical", "concentration"],
+    "search_keywords": ["instrumental focus music", "ambient study playlist", "concentration classical", "binaural beats for focus"],
     "defaults": { "target_energy": 0.2, "target_valence": 0.3, "target_instrumentalness": 0.8, "target_tempo": 100 }
   },
   {
     "name": "romantic_evening",
     "displayName": "Romantic Evening",
-    "search_keywords": ["romantic", "evening", "love songs", "r&b", "soul", "jazz", "ballads"],
+    "search_keywords": ["romantic r&b soul", "love songs for evening", "smooth jazz ballads", "sensual slow jams"],
     "defaults": { "target_energy": 0.4, "target_valence": 0.7, "target_loudness": -8 }
   },
   {
     "name": "road_trip",
     "displayName": "Road Trip Anthems",
-    "search_keywords": ["road trip", "driving", "anthems", "rock", "pop", "alternative"],
+    "search_keywords": ["driving rock anthems", "road trip pop playlist", "alternative singalongs for travel"],
     "defaults": { "target_energy": 0.7, "target_valence": 0.7, "target_danceability": 0.6 }
   },
   {
     "name": "melancholy_reflective",
     "displayName": "Melancholy & Reflective",
-    "search_keywords": ["melancholy", "reflective", "sad", "acoustic", "indie", "singer-songwriter", "introspective"],
+    "search_keywords": ["sad acoustic indie songs", "reflective singer-songwriter", "introspective melancholic music", "somber folk"],
     "defaults": { "target_energy": 0.3, "target_valence": 0.2, "target_tempo": 90 }
   },
   {
     "name": "party_mode",
     "displayName": "Party Mode",
-    "search_keywords": ["party", "upbeat", "hip-hop", "dance", "pop", "celebration"],
+    "search_keywords": ["upbeat party hip-hop", "dance pop celebration mix", "high energy songs for a party"],
     "defaults": { "target_energy": 0.8, "target_valence": 0.7, "target_danceability": 0.85, "target_popularity": 70 }
   },
   {
     "name": "late_night_drive",
     "displayName": "Late Night Drive",
-    "search_keywords": ["late night drive", "electronic", "synthwave", "chillwave", "trip-hop", "atmospheric"],
+    "search_keywords": ["atmospheric electronic for driving", "chillwave synthwave lofi", "late night vibes trip-hop"],
     "defaults": { "target_energy": 0.5, "target_valence": 0.4, "target_tempo": 110, "target_instrumentalness": 0.3 }
   },
   {
     "name": "folk_acoustic_storytelling",
     "displayName": "Folk & Acoustic Storytelling",
-    "search_keywords": ["folk", "acoustic", "storytelling", "singer-songwriter", "ballads"],
+    "search_keywords": ["acoustic folk ballads", "singer-songwriter storytelling", "narrative folk songs"],
     "defaults": { "target_energy": 0.4, "target_valence": 0.6, "target_instrumentalness": 0.1, "target_speechiness": 0.05 }
   },
   {
     "name": "jazz_lounge_sophisticated",
     "displayName": "Jazz Lounge (Sophisticated)",
-    "search_keywords": ["jazz", "lounge", "sophisticated", "swing", "bossa nova", "instrumental jazz"],
+    "search_keywords": ["sophisticated jazz lounge", "swing bossa nova", "instrumental jazz for background"],
     "defaults": { "target_energy": 0.4, "target_valence": 0.5, "target_instrumentalness": 0.6, "target_tempo": 100 }
   },
   {
     "name": "rock_anthem_stadium",
     "displayName": "Rock Anthems (Stadium)",
-    "search_keywords": ["rock anthems", "stadium rock", "classic rock", "hard rock", "alternative rock"],
+    "search_keywords": ["stadium rock anthems", "classic hard rock", "alternative rock singalongs"],
     "defaults": { "target_energy": 0.8, "target_valence": 0.5, "target_loudness": -5 }
   },
   {
     "name": "reggae_sunshine_vibes",
     "displayName": "Reggae Sunshine Vibes",
-    "search_keywords": ["reggae", "sunshine", "good vibes", "dancehall", "dub", "ska"],
+    "search_keywords": ["reggae good vibes", "sunshine dancehall dub", "ska summer playlist"],
     "defaults": { "target_energy": 0.6, "target_valence": 0.8, "target_danceability": 0.75 }
   },
   {
     "name": "classical_epic_cinematic",
     "displayName": "Classical (Epic & Cinematic)",
-    "search_keywords": ["classical music", "epic", "cinematic", "soundtrack", "orchestral", "film score"],
+    "search_keywords": ["epic classical music", "cinematic orchestral soundtracks", "film scores instrumental"],
     "defaults": { "target_energy": 0.6, "target_valence": 0.3, "target_instrumentalness": 0.9 }
   },
   {
     "name": "indie_alternative_quirky",
     "displayName": "Indie & Alternative (Quirky)",
-    "search_keywords": ["indie pop", "alternative rock", "quirky", "indie folk", "art pop"],
+    "search_keywords": ["quirky indie pop", "alternative rock with unique sound", "art pop indie folk"],
     "defaults": { "target_energy": 0.6, "target_valence": 0.55, "target_danceability": 0.5 }
   }
 ]
