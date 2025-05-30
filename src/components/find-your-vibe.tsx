@@ -4,7 +4,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, Controller } from 'react-hook-form';
 import * as z from 'zod';
-import { useState, useCallback, useEffect } from 'react'; // Added useEffect
+import { useState, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -12,13 +12,13 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Loader2, Search, ChevronDown, ChevronUp, Settings2, Music4 } from 'lucide-react';
+import { Loader2, Search, Settings2, Music4 } from 'lucide-react'; // Removed ChevronDown, ChevronUp
 import type { ProfileAnalysisOutput } from '@/types';
 import { MoodComposer } from '@/components/mood-composer';
 import type { MoodInput } from '@/lib/music/buildRecommendationParams';
 
 const formSchema = z.object({
-  moodDescription: z.string().optional(),
+  moodDescription: z.string().optional(), 
   socialProfileUrl: z.string().url({ message: 'Please enter a valid URL.' }).optional(),
   songName: z.string().optional(),
   instrumentTags: z.string().optional(),
@@ -47,7 +47,7 @@ export function FindYourVibe({
   onAnalyzeProfile,
 }: FindYourVibeProps) {
   const [isSubmittingForm, setIsSubmittingForm] = useState(false);
-  const [showAdvancedSongFilters, setShowAdvancedSongFilters] = useState(false);
+  // const [showAdvancedSongFilters, setShowAdvancedSongFilters] = useState(false); // Removed, using Accordion's state
   const [activeTab, setActiveTab] = useState<'mood' | 'profile'>('mood');
   const [moodComposerParams, setMoodComposerParams] = useState<MoodInput | null>(null);
 
@@ -62,8 +62,8 @@ export function FindYourVibe({
   });
   
   useEffect(() => {
-    console.log("FindYourVibe: Rerender triggered. isSubmittingForm:", isSubmittingForm, "isParentSearching:", isParentSearching);
-  }, [isSubmittingForm, isParentSearching]);
+    console.log("FindYourVibe: Rerender triggered. isSubmittingForm:", isSubmittingForm, "isParentSearching:", isParentSearching, "moodComposerParams:", JSON.stringify(moodComposerParams));
+  }, [isSubmittingForm, isParentSearching, moodComposerParams]);
 
   const handleMoodComposerChange = useCallback((params: MoodInput | null) => {
     console.log("FindYourVibe: MoodComposer params changed:", JSON.stringify(params));
@@ -73,7 +73,7 @@ export function FindYourVibe({
   async function onSubmit(values: FormValues) {
     console.log("FindYourVibe onSubmit - START. Values:", JSON.stringify(values), "ActiveTab:", activeTab, "MoodComposerParams:", JSON.stringify(moodComposerParams));
     setIsSubmittingForm(true);
-    let searchType: 'mood' | 'profile' | 'structured_mood' = activeTab as 'mood' | 'profile'; // Default to activeTab
+    let searchType: 'mood' | 'profile' | 'structured_mood' = activeTab as 'mood' | 'profile'; 
 
     const submissionValues: FormValues = { ...values, moodComposerParams };
 
@@ -96,17 +96,17 @@ export function FindYourVibe({
       } else {
         form.setError("moodDescription", { type: "manual", message: "Please select a mood profile, adjust mood controls, or provide a mood description using the advanced free-text option." });
         setIsSubmittingForm(false);
-        console.log("FindYourVibe onSubmit - FORM ERROR SET: No valid mood input.");
+        console.log("FindYourVibe onSubmit - FORM ERROR SET: No valid mood input. Button should be disabled.");
         return;
       }
     } else if (activeTab === 'profile') {
       if (!values.socialProfileUrl || values.socialProfileUrl.trim() === '') {
         form.setError("socialProfileUrl", {type: "manual", message: "Social profile URL is required for this search type."});
         setIsSubmittingForm(false);
-        console.log("FindYourVibe onSubmit - FORM ERROR SET: No social profile URL.");
+        console.log("FindYourVibe onSubmit - FORM ERROR SET: No social profile URL. Button should be disabled.");
         return;
       }
-      searchType = 'profile'; // Already set by default, but good to be explicit
+      searchType = 'profile'; 
       console.log("FindYourVibe onSubmit - Determined searchType: profile");
     }
 
@@ -115,8 +115,8 @@ export function FindYourVibe({
       await onSearchInitiated(submissionValues, searchType);
       console.log("FindYourVibe onSubmit - onSearchInitiated completed successfully.");
     } catch (e) { 
-      console.error("FindYourVibe onSubmit - Error caught during/after onSearchInitiated call:", e);
-      // Errors are expected to be handled by page.tsx and shown as toasts there.
+      const error = e as Error;
+      console.error("FindYourVibe onSubmit - Error caught during/after onSearchInitiated call:", error.message, error);
     } finally {
       setIsSubmittingForm(false);
       console.log("FindYourVibe onSubmit - FINALLY block, isSubmittingForm set to false.");
@@ -135,9 +135,25 @@ export function FindYourVibe({
   };
   
   const isDiscoverButtonDisabled = () => {
-    if (isSubmittingForm || isParentSearching) return true;
+    const currentMoodDescription = form.watch('moodDescription') || '';
+    const currentSocialProfileUrl = form.watch('socialProfileUrl') || '';
 
-    if (activeTab === 'mood') {
+    let reason = "";
+    let isDisabled = true; // Default to disabled
+
+    console.log("--- isDiscoverButtonDisabled Check START ---");
+    console.log(`States: isSubmittingForm=${isSubmittingForm}, isParentSearching=${isParentSearching}, activeTab=${activeTab}`);
+    console.log(`MoodComposerParams: ${JSON.stringify(moodComposerParams)}`);
+    console.log(`Watched Values: moodDescription='${currentMoodDescription}', socialProfileUrl='${currentSocialProfileUrl}'`);
+
+
+    if (isSubmittingForm) {
+      reason = "Form is currently submitting.";
+      isDisabled = true;
+    } else if (isParentSearching) {
+      reason = "Parent component is searching.";
+      isDisabled = true;
+    } else if (activeTab === 'mood') {
       const moodComposerInteracted = moodComposerParams && (
         moodComposerParams.selectedMoodName ||
         moodComposerParams.energy !== undefined ||
@@ -145,27 +161,40 @@ export function FindYourVibe({
         moodComposerParams.tempo !== undefined ||
         (moodComposerParams.languages && moodComposerParams.languages.length > 0)
       );
-      const advancedTextProvided = (form.watch('moodDescription') || '').trim() !== ''; // Use watch for reactivity
-      const isDisabled = !(moodComposerInteracted || advancedTextProvided);
-      // console.log("FindYourVibe isDiscoverButtonDisabled (mood):", isDisabled, "moodComposerInteracted:", moodComposerInteracted, "advancedTextProvided:", advancedTextProvided);
-      return isDisabled;
+      const advancedTextProvided = currentMoodDescription.trim() !== '';
+      
+      console.log(`Mood Tab: moodComposerInteracted=${moodComposerInteracted}, advancedTextProvided=${advancedTextProvided}`);
+      
+      isDisabled = !(moodComposerInteracted || advancedTextProvided);
+      if (isDisabled) {
+        reason = "Mood tab: Neither Mood Composer interacted nor Advanced Text provided.";
+      } else {
+        reason = "Mood tab: Conditions met.";
+      }
+    } else if (activeTab === 'profile') {
+      const socialProfileUrlProvided = currentSocialProfileUrl.trim() !== '';
+      console.log(`Profile Tab: socialProfileUrlProvided=${socialProfileUrlProvided}`);
+      isDisabled = !socialProfileUrlProvided;
+      if (isDisabled) {
+        reason = "Profile tab: Social Profile URL not provided.";
+      } else {
+        reason = "Profile tab: Social Profile URL provided.";
+      }
+    } else {
+      reason = `Unknown active tab: ${activeTab}. Defaulting to disabled.`;
+      isDisabled = true; 
     }
-    if (activeTab === 'profile') {
-      const isDisabled = !(form.watch('socialProfileUrl') || '').trim(); // Use watch for reactivity
-      // console.log("FindYourVibe isDiscoverButtonDisabled (profile):", isDisabled, "socialProfileUrl:", form.watch('socialProfileUrl'));
-      return isDisabled;
-    }
-    // console.log("FindYourVibe isDiscoverButtonDisabled (default): true");
-    return true; // Default to disabled if tab logic not met
+    
+    console.log(`isDiscoverButtonDisabled FINAL: Result=${isDisabled}. Reason: ${reason}`);
+    console.log("--- isDiscoverButtonDisabled Check END ---");
+    return isDisabled;
   };
-
-  // console.log("FindYourVibe rendering. Active Tab:", activeTab, "isSubmittingForm:", isSubmittingForm, "isParentSearching:", isParentSearching);
 
   return (
     <section className="w-full">
       <Card className="max-w-2xl mx-auto form-container-card subtle-shadow">
         <CardHeader className="pb-4 pt-1 px-0 md:px-0">
-          <CardTitle className="form-card-title">How are you feeling today?</CardTitle>
+          <CardTitle className="form-card-title">What kind of vibe are you looking for?</CardTitle>
         </CardHeader>
         <CardContent className="pt-6 px-0 md:px-0">
           <Tabs value={activeTab} onValueChange={(value) => { console.log("FindYourVibe: Tab changed to", value); setActiveTab(value as 'mood' | 'profile')}} className="w-full">
@@ -174,19 +203,21 @@ export function FindYourVibe({
               <TabsTrigger value="profile" className="gap-2"><Settings2 className="h-4 w-4" /> By Social Profile</TabsTrigger>
             </TabsList>
 
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-0"> {/* space-y-0 to rely on form-field-spacing */}
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-0">
               <TabsContent value="mood" className="mt-0">
                 <div className="form-field-spacing">
-                  <MoodComposer onParamsChange={handleMoodComposerChange} />
+                  <MoodComposer 
+                    onParamsChange={handleMoodComposerChange} 
+                  />
                 </div>
                 <Accordion type="single" collapsible className="w-full mb-6">
                   <AccordionItem value="advanced-mood-text">
                     <AccordionTrigger className="text-sm font-medium text-muted-foreground hover:no-underline py-3">
-                      Advanced: Use Free-Text Vibe Description
+                       Advanced: Use Free-Text Vibe Description
                     </AccordionTrigger>
                     <AccordionContent className="pt-4">
                       <Label htmlFor="moodDescription" className="form-label">
-                        Describe Your Vibe <span className="form-optional-label">(if not using mood composer above)</span>
+                        Your Vibe Description <span className="form-optional-label">(if not using mood composer above)</span>
                       </Label>
                       <Textarea
                         id="moodDescription"
@@ -203,7 +234,7 @@ export function FindYourVibe({
               <TabsContent value="profile" className="mt-0">
                 <div className="form-field-spacing">
                   <Label htmlFor="socialProfileUrl" className="form-label">
-                    Social Profile URL <span className="text-primary text-sm">(required for this tab)</span>
+                    Social Profile URL <span className="form-optional-label">(required for this tab)</span>
                   </Label>
                   <div className="flex space-x-2">
                     <Input
@@ -231,38 +262,35 @@ export function FindYourVibe({
                 )}
               </TabsContent>
 
-              {/* Common Advanced Song Filters */}
               <div className="form-field-spacing">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowAdvancedSongFilters(!showAdvancedSongFilters)}
-                  className="w-full themed-input flex items-center justify-center text-sm font-medium hover:bg-muted/80"
-                  aria-expanded={showAdvancedSongFilters}
-                >
-                  {showAdvancedSongFilters ? 'Hide Song Filters' : 'Advanced Song Filters'}
-                  {showAdvancedSongFilters ? <ChevronUp className="ml-2 h-4 w-4" /> : <ChevronDown className="ml-2 h-4 w-4" />}
-                </Button>
+                <Accordion type="single" collapsible className="w-full">
+                  <AccordionItem value="advanced-song-filters">
+                    <AccordionTrigger 
+                        className="text-sm font-medium text-muted-foreground hover:no-underline py-3 data-[state=closed]:border-b data-[state=closed]:border-border"
+                    >
+                      Optional Song Filters
+                    </AccordionTrigger>
+                    <AccordionContent className="pt-4 animate-accordion-down">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
+                        <div className="form-field-spacing">
+                          <Label htmlFor="songName" className="form-label">
+                            Specific Song <span className="form-optional-label">(optional)</span>
+                          </Label>
+                          <Input id="songName" placeholder="e.g., Levitating" {...form.register('songName')} className="form-input-field" />
+                        </div>
+                        <div className="form-field-spacing">
+                          <Label htmlFor="instrumentTags" className="form-label">
+                            Key Instruments <span className="form-optional-label">(optional)</span>
+                          </Label>
+                          <Input id="instrumentTags" placeholder="e.g. guitar, saxophone" {...form.register('instrumentTags')} className="form-input-field" />
+                        </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
               </div>
-
-              {showAdvancedSongFilters && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 animate-accordion-down mb-6"> {/* Ensure mb-6 is here not on individual items to keep spacing consistent with form-field-spacing */}
-                  <div className="form-field-spacing"> {/* This div will take one column */}
-                    <Label htmlFor="songName" className="form-label">
-                      Specific Song <span className="form-optional-label">(optional)</span>
-                    </Label>
-                    <Input id="songName" placeholder="e.g., Levitating" {...form.register('songName')} className="form-input-field" />
-                  </div>
-                  <div className="form-field-spacing"> {/* This div will take the other column */}
-                    <Label htmlFor="instrumentTags" className="form-label">
-                      Key Instruments <span className="form-optional-label">(optional)</span>
-                    </Label>
-                    <Input id="instrumentTags" placeholder="e.g. guitar, saxophone" {...form.register('instrumentTags')} className="form-input-field" />
-                  </div>
-                </div>
-              )}
               
-              <div className="pt-2"> {/* Added pt-2 for slight separation if filters are hidden */}
+              <div className="pt-2">
                 <Button type="submit" disabled={isDiscoverButtonDisabled()} className="discover-button">
                   {(isSubmittingForm || isParentSearching) ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Search className="mr-2 h-5 w-5" />}
                   {(isSubmittingForm || isParentSearching) ? 'Searching...' : 'Find my vibe'}
@@ -275,3 +303,5 @@ export function FindYourVibe({
     </section>
   );
 }
+
+    
